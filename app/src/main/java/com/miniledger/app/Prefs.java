@@ -1,0 +1,86 @@
+package com.miniledger.app;
+
+import android.content.Context;
+import android.content.SharedPreferences;
+
+final class Prefs {
+    private static SharedPreferences sp(Context c) {
+        return c.getApplicationContext().getSharedPreferences("cfg", Context.MODE_PRIVATE);
+    }
+
+    static boolean autoConfirm(Context c) {
+        return sp(c).getBoolean("auto_confirm", true);
+    }
+
+    static void setAutoConfirm(Context c, boolean v) {
+        sp(c).edit().putBoolean("auto_confirm", v).apply();
+    }
+
+    static boolean guideShown(Context c) {
+        return sp(c).getBoolean("guide_shown", false);
+    }
+
+    static void setGuideShown(Context c) {
+        sp(c).edit().putBoolean("guide_shown", true).apply();
+    }
+
+    static boolean guardOn(Context c) {
+        return sp(c).getBoolean("guard_on", true);
+    }
+
+    static void setGuardOn(Context c, boolean v) {
+        sp(c).edit().putBoolean("guard_on", v).apply();
+    }
+
+    /** true = 玻璃皮肤，false = 极简白。 */
+    static boolean glass(Context c) {
+        return sp(c).getBoolean("glass", true);
+    }
+
+    static void setGlass(Context c, boolean v) {
+        sp(c).edit().putBoolean("glass", v).apply();
+    }
+
+    /** 月度预算，单位分；0 表示没设。 */
+    static long budget(Context c) {
+        return sp(c).getLong("budget", 0L);
+    }
+
+    static void setBudget(Context c, long cents) {
+        sp(c).edit().putLong("budget", cents).apply();
+    }
+
+    static boolean alerted(Context c, String key) {
+        return sp(c).getBoolean("alert_" + key, false);
+    }
+
+    static void setAlerted(Context c, String key) {
+        sp(c).edit().putBoolean("alert_" + key, true).apply();
+    }
+
+    // ------------------------------------------------------------ 大模型
+
+    static boolean llmOn(Context c) {
+        return sp(c).getBoolean("llm_on", false);
+    }
+
+    static void setLlmOn(Context c, boolean v) {
+        sp(c).edit().putBoolean("llm_on", v).apply();
+    }
+
+    static Llm.Cfg llmCfg(Context c) {
+        Llm.Cfg cfg = new Llm.Cfg();
+        cfg.baseUrl = sp(c).getString("llm_base", "");
+        cfg.apiKey = sp(c).getString("llm_key", "");
+        cfg.model = sp(c).getString("llm_model", "deepseek-chat");
+        return cfg;
+    }
+
+    static void setLlm(Context c, String base, String key, String model) {
+        sp(c).edit()
+                .putString("llm_base", base == null ? "" : base.trim())
+                .putString("llm_key", key == null ? "" : key.trim())
+                .putString("llm_model", model == null || model.trim().isEmpty() ? "deepseek-chat" : model.trim())
+                .apply();
+    }
+}

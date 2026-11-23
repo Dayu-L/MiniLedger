@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>简账 · 玻璃</title>
+<style>
+  :root{
+    --ink:#11151A; --sub:#4B5058; --faint:#5F6368;
+    --line:#E7E9EC; --brand:#0F766E; --in:#247B50; --warn:#C4242A;
+    --r:20px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:844px;width:390px;overflow:hidden;background:#F2F5F8}
+  body{font-family:-apple-system,"Segoe UI",Roboto,"Noto Sans SC","PingFang SC",sans-serif;
+       -webkit-font-smoothing:antialiased}
+  .phone{position:relative;width:390px;height:844px;overflow:hidden;background:#F2F5F8}
+  .aurora{position:absolute;inset:0;overflow:hidden}
+  .aurora i{position:absolute;display:block;border-radius:50%;filter:blur(64px)}
+  .a1{width:340px;height:340px;left:-40px;top:-70px;background:#9FE3D8;opacity:.85}
+  .a2{width:320px;height:320px;right:-90px;top:90px;background:#C7DDF8;opacity:.8}
+  .a3{width:330px;height:330px;left:-80px;bottom:40px;background:#FBDCC4;opacity:.7}
+  .a4{width:300px;height:300px;right:-80px;bottom:-80px;background:#7FD8C6;opacity:.55}
+
+  .screen{position:relative;display:flex;flex-direction:column;height:844px}
+
+  header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 0}
+  h1{font-size:20px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
+  .live{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--in)}
+  .live b{width:6px;height:6px;border-radius:50%;background:var(--in);display:block}
+
+  .card{background:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.45);
+        border-radius:var(--r);box-shadow:0 6px 20px rgba(17,21,26,.06);backdrop-filter:blur(14px)}
+
+  .month{margin:12px 16px 0;padding:4px 18px 16px}
+  .switch{display:flex;align-items:center;justify-content:space-between;height:34px;color:var(--sub);font-size:13px}
+  .switch b{font-weight:400;color:var(--faint);font-size:17px}
+
+  .figs{display:flex;align-items:flex-end;justify-content:space-between;margin-top:2px}
+  .fig .k{font-size:12px;color:var(--faint)}
+  .fig .v{font-size:28px;font-weight:700;letter-spacing:-.02em;line-height:1.15;margin-top:2px;
+          font-variant-numeric:tabular-nums;color:var(--ink)}
+  .fig .v.plus{font-size:16px;color:var(--in)}
+
+  .budget{margin-top:14px}
+  .budget .line{display:flex;justify-content:space-between;font-size:12px;color:var(--faint)}
+  .track{height:6px;border-radius:3px;background:rgba(17,21,26,.07);margin-top:7px;overflow:hidden}
+  .track i{display:block;height:100%;width:41%;border-radius:3px;background:var(--brand)}
+
+  .list{margin:12px 16px 0;flex:1;min-height:0;padding:0 16px;overflow:hidden}
+  .row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid rgba(17,21,26,.06)}
+  .row:last-child{border-bottom:none}
+  .badge{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;
+         font-size:13px;font-weight:700;flex:none}
+  .b-food{background:rgba(194,65,12,.13);color:#6B2407}
+  .b-traffic{background:rgba(29,78,216,.13);color:#102C6B}
+  .b-shop{background:rgba(190,24,93,.13);color:#6B0E35}
+  .b-daily{background:rgba(21,128,61,.13);color:#0B4A25}
+  .b-fun{background:rgba(109,40,217,.13);color:#3C1775}
+  .mid{flex:1;min-width:0}
+  .mid .n{font-size:15px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mid .s{font-size:12px;color:var(--faint);margin-top:3px}
+  .amt{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink)}
+  .amt.plus{color:var(--in)}
+
+  nav{display:flex;padding:7px 0 8px;background:rgba(255,255,255,.85);
+      border-top:1px solid rgba(255,255,255,.6);
+      backdrop-filter:blur(18px);box-shadow:0 -4px 20px rgba(17,21,26,.05)}
+  nav div{flex:1;text-align:center;font-size:12px;line-height:29px;color:var(--faint)}
+  nav div.on{color:var(--brand);font-weight:700}
+  nav .pending{color:var(--warn)}
+
+  /* 极简皮肤 */
+  body.minimal .aurora{display:none}
+  body.minimal .card{background:#fff;border-color:#E7E9EC;box-shadow:none;backdrop-filter:none}
+  body.minimal nav{background:#fff;box-shadow:none;border-top:1px solid #E7E9EC;backdrop-filter:none}
+  body.minimal .fab{box-shadow:0 4px 14px rgba(17,21,26,.14)}
+
+  .fab{position:absolute;right:24px;bottom:92px;width:56px;height:56px;border-radius:50%;
+       background:#1D1F20;color:#fff;font-size:26px;display:grid;place-items:center;
+       box-shadow:0 10px 24px rgba(17,21,26,.24)}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="aurora"><i class="a1"></i><i class="a2"></i><i class="a3"></i><i class="a4"></i></div>
+  <div class="screen">
+    <header><h1>简账</h1><div class="live"><b></b>监听中</div></header>
+
+    <section class="card month">
+      <div class="switch"><b>‹</b><span>2026年11月</span><b>›</b></div>
+      <div class="figs">
+        <div class="fig"><div class="k">本月支出</div><div class="v">¥1,234.56</div></div>
+        <div class="fig" style="text-align:right"><div class="k">本月收入</div><div class="v plus">+¥8,000.00</div></div>
+      </div>
+      <div class="budget">
+        <div class="line"><span>预算 ¥3,000 · 还剩 ¥1,765</span><span>41%</span></div>
+        <div class="track"><i></i></div>
+      </div>
+    </section>
+
+    <section class="card list">
+      <div class="row"><div class="badge b-food">餐</div>
+        <div class="mid"><div class="n">美团</div><div class="s">餐饮 · 微信 · 12:40</div></div>
+        <div class="amt">-¥32.50</div></div>
+      <div class="row"><div class="badge b-traffic">交</div>
+        <div class="mid"><div class="n">滴滴出行</div><div class="s">交通 · 微信 · 09:12</div></div>
+        <div class="amt">-¥24.00</div></div>
+      <div class="row"><div class="badge b-shop">购</div>
+        <div class="mid"><div class="n">淘宝</div><div class="s">购物 · 支付宝 · 昨天 21:30</div></div>
+        <div class="amt">-¥189.00</div></div>
+      <div class="row"><div class="badge b-daily">日</div>
+        <div class="mid"><div class="n">盒马鲜生</div><div class="s">日用 · 支付宝 · 昨天 18:05</div></div>
+        <div class="amt">-¥76.40</div></div>
+      <div class="row"><div class="badge b-fun">娱</div>
+        <div class="mid"><div class="n">猫眼电影</div><div class="s">娱乐 · 微信 · 11月11日</div></div>
+        <div class="amt">-¥45.00</div></div>
+      <div class="row"><div class="badge b-daily">退</div>
+        <div class="mid"><div class="n">退款 · 淘宝</div><div class="s">退款 · 支付宝 · 11月10日</div></div>
+        <div class="amt plus">+¥59.00</div></div>
+    </section>
+
+    <nav>
+      <div class="on">账单</div>
+      <div class="pending">待确认 2</div>
+      <div>统计</div>
+      <div>设置</div>
+    </nav>
+    <div class="fab">＋</div>
+  </div>
+</div>
+<script>
+  if (location.hash === '#minimal') document.body.classList.add('minimal');
+</script>
+</body>
+</html>
