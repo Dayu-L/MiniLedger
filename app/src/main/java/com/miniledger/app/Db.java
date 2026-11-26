@@ -125,7 +125,7 @@ class Db extends SQLiteOpenHelper {
 
     /**
      * 写入一笔。
-     * @return 新 id；重复则 -1。
+     * @return 新 id；-1 = 单号重复；-2 = 手动记账 2 分钟内记过一样的
      */
     long insert(Tx t, boolean autoConfirm) {
         SQLiteDatabase d = getWritableDatabase();
@@ -135,6 +135,11 @@ class Db extends SQLiteOpenHelper {
             boolean has = c.moveToFirst();
             c.close();
             if (has) return -1;
+        }
+
+        if ("manual".equals(t.source)) {
+            // 手动的防抖：同一天+同金额+同商户，2 分钟内已经有一笔 → 不再写
+            if (sameSoon(t, 120000L) != null) return -2;
         }
 
         if ("notify".equals(t.source)) {
@@ -273,6 +278,27 @@ class Db extends SQLiteOpenHelper {
                 return -1;
             }
         }
+    }
+
+    /** 已入账的全部记录，按时间升序（查重用）。 */
+    List<Tx> done() {
+        return list("status=1", null, "ts ASC", null);
+    }
+
+    /**
+     * 手动记账的防抖：同一天、同收支、同金额、同商户，且时间窗口内的已有记录。
+     * 双击保存 / 回头又记一遍同一笔时用它挡住。
+     */
+    Tx sameSoon(Tx t, long windowMs) {
+        long dayFrom = Span.dayStartOf(t.ts);
+        long from = Math.max(dayFrom, t.ts - windowMs);
+        long to = Math.min(Span.addDays(dayFrom, 1), t.ts + windowMs);
+        List<Tx> l = list("status=1 AND kind=? AND amount=? AND ts>=? AND ts<? AND merchant=?",
+                new String[]{String.valueOf(t.kind), String.valueOf(t.amount),
+                        String.valueOf(from), String.valueOf(to),
+                        t.merchant == null ? "" : t.merchant},
+                "ts ASC", "1");
+        return l.isEmpty() ? null : l.get(0);
     }
 
     /** 同商户所有待确认（批量处理用）。 */

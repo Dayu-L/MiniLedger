@@ -153,18 +153,23 @@ final class AddDialog {
                     t.category = (cat[0] == null || cat[0].isEmpty())
                             ? Categories.def(kind[0]) : cat[0];
                     t.note = note.getText().toString().trim();
+                    boolean skipped = false;
                     if (edit == null) {
                         t.source = "manual";
                         t.account = "现金";
                         t.status = Tx.DONE;
-                        db.insert(t, true);
+                        skipped = db.insert(t, true) == -2;
                     } else {
                         db.update(t);
                     }
                     Budget.check(act);
                     dlg.dismiss();
                     act.refreshAll();
-                    maybeNewCycle(act, t);
+                    if (skipped) {
+                        act.toast("刚记过一笔一样的，没有再写一遍");
+                    } else {
+                        maybeNewCycle(act, t);
+                    }
                 }));
 
         dlg.show();

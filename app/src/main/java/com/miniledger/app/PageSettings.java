@@ -137,6 +137,16 @@ class PageSettings extends Page {
                 Ui.INK,
                 this::backupDialog));
         cb.addView(Ui.hLine(act));
+
+        final List<Dupe.Group> dupes = Dupe.filter(
+                Dupe.find(Db.get(act).done()), Prefs.dupIgnored(act));
+        cb.addView(item("查找重复账单",
+                "同一天、同金额、时间挨得近或同商户的，可能是一笔记了两次",
+                dupes.isEmpty() ? "没有发现" : dupes.size() + " 组",
+                dupes.isEmpty() ? Ui.FAINT : Ui.WARN,
+                () -> showDupes(dupes)));
+
+        cb.addView(Ui.hLine(act));
         cb.addView(item("导入账单 CSV",
                 "微信 / 支付宝导出的账单，或简账自己导出的备份",
                 "选择文件",
@@ -255,7 +265,7 @@ class PageSettings extends Page {
                 null));
         c4.addView(Ui.hLine(act));
         TextView about = Ui.tv(act,
-                "简账 1.0 · 纯本地记账，不联网、不上传。\n" +
+                "简账 " + versionName() + " · 纯本地记账，不联网、不上传。\n" +
                 "账单存在这台手机的 SQLite 里；自动备份是兜底，\n" +
                 "重要的那份请定期用「导出全部账单」放去下载目录。",
                 12.5f, Ui.SUB);
@@ -417,6 +427,77 @@ class PageSettings extends Page {
                 act.runOnUiThread(() -> act.toast("失败：" + (e.getMessage() == null ? "未知错误" : e.getMessage())));
             }
         }).start();
+    }
+
+    /** 查重结果：先列组，再逐组处理。 */
+    private void showDupes(final List<Dupe.Group> groups) {
+        if (groups.isEmpty()) {
+            act.toast("没有发现重复账单");
+            return;
+        }
+        String[] titles = new String[groups.size()];
+        for (int i = 0; i < groups.size(); i++) {
+            Dupe.Group g = groups.get(i);
+            titles[i] = g.title() + (g.merchant().isEmpty() ? "" : " · " + g.merchant());
+        }
+        new AlertDialog.Builder(act)
+                .setTitle("发现 " + groups.size() + " 组疑似重复")
+                .setItems(titles, (d, i) -> dupeDialog(groups.get(i)))
+                .setNegativeButton("关闭", null)
+                .show();
+    }
+
+    private void dupeDialog(final Dupe.Group g) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < g.items.size(); i++) {
+            Tx t = g.items.get(i);
+            sb.append(i + 1).append(") ").append(Span.hm(t.ts)).append("　")
+                    .append(sourceLabel(t.source)).append(" · ")
+                    .append(t.merchant.isEmpty() ? "未知" : t.merchant)
+                    .append(" · ").append(t.category);
+            if (!t.account.isEmpty()) sb.append(" · ").append(t.account);
+            sb.append('\n');
+        }
+        sb.append("\n合并只保留最早那笔，其余删掉（删错了可以撤销）。");
+
+        new AlertDialog.Builder(act)
+                .setTitle(g.title())
+                .setMessage(sb.toString().trim())
+                .setNegativeButton("取消", null)
+                .setNeutralButton("都保留", (d, w) -> {
+                    Prefs.ignoreDup(act, g.signature());
+                    refresh();
+                    act.toast("以后不再提示这一组");
+                })
+                .setPositiveButton("合并", (d, w) -> {
+                    final List<Tx> deleted = g.later();
+                    for (Tx t : deleted) Db.get(act).del(t.id);
+                    act.refreshAll();
+                    refresh();
+                    act.snack("已合并，删掉 " + deleted.size() + " 笔重复", "撤销", () -> {
+                        for (Tx t : deleted) Db.get(act).restore(t);
+                        act.refreshAll();
+                        refresh();
+                    });
+                })
+                .show();
+    }
+
+    private static String sourceLabel(String s) {
+        if ("notify".equals(s)) return "通知";
+        if ("csv".equals(s)) return "导入";
+        if ("recur".equals(s)) return "固定支出";
+        return "手动";
+    }
+
+    /** 从包里读版本号，别在文案里写死。 */
+    private String versionName() {
+        try {
+            return act.getPackageManager()
+                    .getPackageInfo(act.getPackageName(), 0).versionName;
+        } catch (Throwable t) {
+            return "1.1";
+        }
     }
 
     private void showCrash() {

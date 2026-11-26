@@ -584,8 +584,12 @@ class PageChat extends Page {
     private void commit(Msg m, int idx, boolean check) {
         if (check && m.done.get(idx)) return;
         if (m.done.get(idx)) return;
-        Db.get(act).insert(m.items.get(idx), true);
+        long id = Db.get(act).insert(m.items.get(idx), true);
         m.done.set(idx, true);
-        Budget.check(act);
+        if (id == -2) {
+            act.toast("刚记过一笔一样的，没有重复写入");
+        } else if (id > 0) {
+            Budget.check(act);
+        }
     }
 }

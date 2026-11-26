@@ -34,3 +34,10 @@ AJ="$B/sdk/platforms/android-35/android.jar"
   "$SRC/Span.java" "$SRC/Tx.java" "$SRC/Money.java" "$SRC/Categories.java" "$SRC/Db.java" \
   "$SRC/Recur.java" "$PROJ/test/RecurTest.java"
 "$JDK/java" -Dfile.encoding=UTF-8 -cp "$OUT:$AJ" com.miniledger.app.RecurTest
+
+echo
+echo "=== DupeTest ==="
+"$JDK/javac" -encoding UTF-8 -d "$OUT" \
+  "$SRC/Span.java" "$SRC/Tx.java" "$SRC/Money.java" "$PROJ/test/DupeTest.java" \
+  "$SRC/Dupe.java"
+"$JDK/java" -Dfile.encoding=UTF-8 -cp "$OUT" com.miniledger.app.DupeTest

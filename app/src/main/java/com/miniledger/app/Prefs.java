@@ -50,6 +50,17 @@ final class Prefs {
         sp(c).edit().putBoolean("dark", v).apply();
     }
 
+    /** 查重里选过「都保留」的组标记。 */
+    static java.util.Set<String> dupIgnored(Context c) {
+        return sp(c).getStringSet("dup_ignore", new java.util.HashSet<String>());
+    }
+
+    static void ignoreDup(Context c, String sig) {
+        java.util.HashSet<String> s = new java.util.HashSet<>(dupIgnored(c));
+        s.add(sig);
+        sp(c).edit().putStringSet("dup_ignore", s).apply();
+    }
+
     /** 上次自动备份的时间戳。 */
     static long lastBackup(Context c) {
         return sp(c).getLong("last_backup", 0L);
