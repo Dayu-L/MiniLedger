@@ -52,6 +52,19 @@ final class Ui {
         return Skin.dark ? 0xFF1E252B : SOFT;
     }
 
+    /** chip 底：玻璃皮肤补一道发丝边（纯白底压在卡片上会看不见边界）。 */
+    static GradientDrawable chipBgDrawable(Context c) {
+        return chipBgDrawable(c, 10);
+    }
+
+    static GradientDrawable chipBgDrawable(Context c, float radiusDp) {
+        if (Skin.glass) {
+            return roundStroke(0x33FFFFFF, radiusDp,
+                    Skin.dark ? 0x24FFFFFF : 0x1F11151A, 1, c);
+        }
+        return round(SOFT, radiusDp, c);
+    }
+
     private static final int[] PALETTE = {
             0xFF0F766E, 0xFFC2410C, 0xFFB45309, 0xFF1D4ED8, 0xFF6D28D9,
             0xFF15803D, 0xFFBE185D, 0xFF0E7490, 0xFF4338CA, 0xFFB91C1C, 0xFF475569

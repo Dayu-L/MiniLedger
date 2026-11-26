@@ -369,7 +369,7 @@ class PageSettings extends Page {
         boolean on = Skin.glass == glass;
         TextView t = Ui.tv(act, name, 13, on ? Ui.ON_BRAND : Ui.INK);
         t.setGravity(Gravity.CENTER);
-        t.setBackground(Ui.round(on ? Ui.BRAND : Ui.chipBg(act), 10, act));
+        t.setBackground((on ? Ui.round(Ui.BRAND, 10, act) : Ui.chipBgDrawable(act)));
         t.setOnClickListener(v -> {
             if (Skin.glass != glass) act.applySkin(glass);
         });
@@ -518,7 +518,7 @@ class PageSettings extends Page {
         final String[] cat = {r.category};
         final TextView catTv = Ui.tv(act, "分类　" + cat[0], 13, Ui.SUB);
         catTv.setPadding(Ui.d(act, 12), Ui.d(act, 10), Ui.d(act, 12), Ui.d(act, 10));
-        catTv.setBackground(Ui.round(Ui.chipBg(act), 10, act));
+        catTv.setBackground(Ui.chipBgDrawable(act));
         LinearLayout.LayoutParams catLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         catLp.topMargin = Ui.d(act, 10);
@@ -580,7 +580,7 @@ class PageSettings extends Page {
         et.setSingleLine(true);
         et.setTextSize(14);
         et.setPadding(Ui.d(act, 12), Ui.d(act, 10), Ui.d(act, 12), Ui.d(act, 10));
-        et.setBackground(Ui.round(Ui.chipBg(act), 10, act));
+        et.setBackground(Ui.chipBgDrawable(act));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.bottomMargin = Ui.d(act, 10);

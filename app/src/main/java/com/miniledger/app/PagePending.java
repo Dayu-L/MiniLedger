@@ -156,7 +156,7 @@ class PagePending extends Page {
                 TextView chip = Ui.tv(act, name, 13,
                         name.equals(chosen[0]) ? Ui.ON_BRAND : Ui.INK);
                 chip.setGravity(Gravity.CENTER);
-                chip.setBackground(Ui.round(name.equals(chosen[0]) ? Ui.BRAND : Ui.chipBg(act), 10, act));
+                chip.setBackground((name.equals(chosen[0]) ? Ui.round(Ui.BRAND, 10, act) : Ui.chipBgDrawable(act)));
                 chip.setOnClickListener(v -> {
                     chosen[0] = name;
                     applyCategory(same, name);

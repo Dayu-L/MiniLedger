@@ -75,7 +75,7 @@ final class AddDialog {
         dateTv.setEllipsize(TextUtils.TruncateAt.END);
         dateTv.setGravity(Gravity.CENTER_VERTICAL);
         dateTv.setPadding(Ui.d(act, 12), 0, Ui.d(act, 12), 0);
-        dateTv.setBackground(Ui.round(Ui.chipBg(act), 10, act));
+        dateTv.setBackground(Ui.chipBgDrawable(act));
         dateRow.addView(dateTv, new LinearLayout.LayoutParams(0,
                 ViewGroup.LayoutParams.MATCH_PARENT, 1f));
 
@@ -107,9 +107,9 @@ final class AddDialog {
         final Runnable paint = () -> {
             boolean isOut = kind[0] == Tx.OUT;
             outBtn.setTextColor(isOut ? Ui.ON_BRAND : Ui.SUB);
-            outBtn.setBackground(Ui.round(isOut ? Ui.BRAND : Ui.chipBg(act), 10, act));
+            outBtn.setBackground((isOut ? Ui.round(Ui.BRAND, 10, act) : Ui.chipBgDrawable(act)));
             inBtn.setTextColor(!isOut ? Ui.ON_BRAND : Ui.SUB);
-            inBtn.setBackground(Ui.round(!isOut ? Ui.BRAND : Ui.chipBg(act), 10, act));
+            inBtn.setBackground((!isOut ? Ui.round(Ui.BRAND, 10, act) : Ui.chipBgDrawable(act)));
         };
 
         final Runnable refill = () -> fillGrid(act, grid, kind[0], cat);
@@ -215,7 +215,7 @@ final class AddDialog {
                                      final Runnable after) {
         TextView t = Ui.tv(c, s, 12.5f, Ui.SUB);
         t.setGravity(Gravity.CENTER);
-        t.setBackground(Ui.round(Ui.chipBg(c), 10, c));
+        t.setBackground(Ui.chipBgDrawable(c));
         t.setOnClickListener(v -> {
             long keep = ts[0];
             long target = Span.dayStart(dayOffset);
@@ -258,7 +258,7 @@ final class AddDialog {
                     boolean on = name.equals(sel[0]);
                     TextView chip = Ui.tv(c, name, 13, on ? Ui.ON_BRAND : Ui.INK);
                     chip.setGravity(Gravity.CENTER);
-                    chip.setBackground(Ui.round(on ? Ui.BRAND : Ui.chipBg(c), 10, c));
+                    chip.setBackground((on ? Ui.round(Ui.BRAND, 10, c) : Ui.chipBgDrawable(c)));
                     chip.setOnClickListener(v -> {
                         sel[0] = name;
                         fillGrid(c, grid, kind, sel);

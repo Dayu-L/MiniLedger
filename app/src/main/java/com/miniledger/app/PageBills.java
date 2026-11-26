@@ -60,7 +60,7 @@ class PageBills extends Page {
 
         TextView searchBtn = Ui.tv(a, "搜索", 12, Ui.SUB);
         searchBtn.setPadding(Ui.d(a, 10), Ui.d(a, 5), Ui.d(a, 10), Ui.d(a, 5));
-        searchBtn.setBackground(Ui.round(Ui.chipBg(a), 10, a));
+        searchBtn.setBackground(Ui.chipBgDrawable(a));
         LinearLayout.LayoutParams sbLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         sbLp.leftMargin = Ui.d(a, 10);
@@ -81,7 +81,7 @@ class PageBills extends Page {
         kwEt.setHint("搜商户 / 备注 / 分类");
         kwEt.setTextSize(14);
         kwEt.setSingleLine(true);
-        kwEt.setBackground(Ui.round(Ui.chipBg(a), 10, a));
+        kwEt.setBackground(Ui.chipBgDrawable(a));
         kwEt.setPadding(Ui.d(a, 12), Ui.d(a, 6), Ui.d(a, 12), Ui.d(a, 6));
         fRow.addView(kwEt, new LinearLayout.LayoutParams(0,
                 ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
@@ -253,7 +253,7 @@ class PageBills extends Page {
         et.setTextSize(13);
         et.setSingleLine(true);
         et.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        et.setBackground(Ui.round(Ui.chipBg(a), 10, a));
+        et.setBackground(Ui.chipBgDrawable(a));
         et.setPadding(Ui.d(a, 8), Ui.d(a, 6), Ui.d(a, 8), Ui.d(a, 6));
         et.setTextColor(Ui.INK);
         et.setHintTextColor(Ui.FAINT);
@@ -272,7 +272,7 @@ class PageBills extends Page {
         final boolean on = name.equals(catShown.isEmpty() ? "全部" : catShown);
         TextView t = Ui.tv(a, name, 12.5f, on ? Ui.ON_BRAND : Ui.SUB);
         t.setPadding(Ui.d(a, 12), Ui.d(a, 6), Ui.d(a, 12), Ui.d(a, 6));
-        t.setBackground(Ui.round(on ? Ui.BRAND : Ui.chipBg(a), 10, a));
+        t.setBackground((on ? Ui.round(Ui.BRAND, 10, a) : Ui.chipBgDrawable(a)));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.rightMargin = Ui.d(a, 6);
@@ -284,7 +284,7 @@ class PageBills extends Page {
                 TextView c = (TextView) group.getChildAt(i);
                 boolean sel = c.getText().toString().equals(name);
                 c.setTextColor(sel ? Ui.ON_BRAND : Ui.SUB);
-                c.setBackground(Ui.round(sel ? Ui.BRAND : Ui.chipBg(a), 10, a));
+                c.setBackground((sel ? Ui.round(Ui.BRAND, 10, a) : Ui.chipBgDrawable(a)));
             }
             refresh();
         });

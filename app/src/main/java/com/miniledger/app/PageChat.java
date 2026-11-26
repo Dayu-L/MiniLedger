@@ -70,7 +70,7 @@ class PageChat extends Page {
         for (String q : quick) {
             TextView chip = Ui.tv(a, q, 12, Ui.SUB);
             chip.setPadding(Ui.d(a, 12), Ui.d(a, 6), Ui.d(a, 12), Ui.d(a, 6));
-            chip.setBackground(Ui.round(Ui.chipBg(a), 12, a));
+            chip.setBackground(Ui.chipBgDrawable(a, 12));
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(WRAP, WRAP);
             lp.rightMargin = Ui.d(a, 8);
             chips.addView(chip, lp);

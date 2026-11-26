@@ -34,3 +34,6 @@ __pycache__/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# 本机临时脚本 / 测试包
+.dev/

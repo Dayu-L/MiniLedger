@@ -67,7 +67,7 @@ class PageCycle extends Page {
         settingsBtn = Ui.tv(a, "起始日", 12, Ui.SUB);
         settingsBtn.setGravity(Gravity.CENTER);
         settingsBtn.setPadding(Ui.d(a, 12), Ui.d(a, 8), Ui.d(a, 12), Ui.d(a, 8));
-        settingsBtn.setBackground(Ui.round(Ui.chipBg(a), 10, a));
+        settingsBtn.setBackground(Ui.chipBgDrawable(a));
         settingsBtn.setOnClickListener(v -> settings());
         top.addView(settingsBtn);
         col.addView(top);
@@ -102,7 +102,7 @@ class PageCycle extends Page {
 
         TextView pickDate = Ui.tv(a, "选个日期", 13, Ui.INK);
         pickDate.setGravity(Gravity.CENTER);
-        pickDate.setBackground(Ui.round(Ui.chipBg(a), 10, a));
+        pickDate.setBackground(Ui.chipBgDrawable(a));
         final long[] start = {Span.dayStart(0)};
         pickDate.setOnClickListener(v -> pickDate(start, () -> {
             Prefs.setCycleStart(act, start[0]);
@@ -304,7 +304,7 @@ class PageCycle extends Page {
                 new LinearLayout.LayoutParams(0, WRAP, 1f));
         final TextView dateTv = Ui.tv(act, "", 13, Ui.INK);
         dateTv.setPadding(Ui.d(act, 12), Ui.d(act, 8), Ui.d(act, 12), Ui.d(act, 8));
-        dateTv.setBackground(Ui.round(Ui.chipBg(act), 10, act));
+        dateTv.setBackground(Ui.chipBgDrawable(act));
         dateRow.addView(dateTv);
         LinearLayout.LayoutParams drl = new LinearLayout.LayoutParams(MATCH, WRAP);
         drl.topMargin = Ui.d(act, 8);
@@ -327,9 +327,9 @@ class PageCycle extends Page {
         final Runnable paintLen = () -> {
             boolean monthly = len[0] <= 0;
             monthChip.setTextColor(monthly ? Ui.ON_BRAND : Ui.SUB);
-            monthChip.setBackground(Ui.round(monthly ? Ui.BRAND : Ui.chipBg(act), 10, act));
+            monthChip.setBackground((monthly ? Ui.round(Ui.BRAND, 10, act) : Ui.chipBgDrawable(act)));
             daysChip.setTextColor(!monthly ? Ui.ON_BRAND : Ui.SUB);
-            daysChip.setBackground(Ui.round(!monthly ? Ui.BRAND : Ui.chipBg(act), 10, act));
+            daysChip.setBackground((!monthly ? Ui.round(Ui.BRAND, 10, act) : Ui.chipBgDrawable(act)));
         };
         monthChip.setOnClickListener(v -> {
             len[0] = 0;

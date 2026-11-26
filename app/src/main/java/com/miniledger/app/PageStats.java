@@ -184,6 +184,7 @@ class PageStats extends Page {
                 prevCats.put(r[0], Long.parseLong(r[1]));
             }
         }
+        boolean hasPrev = !prevCats.isEmpty();
 
         LinearLayout ccard = Ui.card(act);
         ccard.setPadding(Ui.d(act, 18), Ui.d(act, 16), Ui.d(act, 18), Ui.d(act, 8));
@@ -206,7 +207,7 @@ class PageStats extends Page {
                 String cat = row[0];
                 long sum = Long.parseLong(row[1]);
                 Long prev = prevCats.get(cat);
-                ccard.addView(catRow(cat, sum, out, prev == null ? -1 : prev));
+                ccard.addView(catRow(cat, sum, out, prev == null ? -1 : prev, hasPrev));
             }
         }
 
@@ -238,7 +239,7 @@ class PageStats extends Page {
         TextView t = Ui.tv(act, name, 12.5f, on ? Ui.ON_BRAND : Ui.SUB);
         t.setGravity(Gravity.CENTER);
         t.setPadding(Ui.d(act, 12), Ui.d(act, 6), Ui.d(act, 12), Ui.d(act, 6));
-        t.setBackground(Ui.round(on ? Ui.BRAND : Ui.chipBg(act), 10, act));
+        t.setBackground((on ? Ui.round(Ui.BRAND, 10, act) : Ui.chipBgDrawable(act)));
         t.setLayoutParams(new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, Ui.d(act, 32)));
         t.setOnClickListener(v -> {
@@ -262,8 +263,11 @@ class PageStats extends Page {
         return l;
     }
 
-    /** prevSum < 0 表示上个周期没有这个分类。 */
-    private View catRow(String cat, long sum, long total, long prevSum) {
+    /**
+     * @param prevSum 上个窗口该分类的金额；-1 表示上个窗口没有这个分类
+     * @param hasPrev 上个窗口有没有任何支出数据
+     */
+    private View catRow(String cat, long sum, long total, long prevSum, boolean hasPrev) {
         LinearLayout box = new LinearLayout(act);
         box.setOrientation(LinearLayout.VERTICAL);
         LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
@@ -287,7 +291,7 @@ class PageStats extends Page {
             int pct = (int) Math.round(d * 100.0 / prevSum);
             if (d == 0) delta = "　—";
             else delta = "　" + (d > 0 ? "↑" : "↓") + Math.abs(pct) + "%";
-        } else if (prevSum == 0) {
+        } else if (prevSum < 0 && hasPrev) {
             delta = "　新增";
         }
         if (!delta.isEmpty()) {
