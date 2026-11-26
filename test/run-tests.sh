@@ -20,3 +20,17 @@ echo "=== AgentTest ==="
 "$JDK/javac" -encoding UTF-8 -d "$OUT" \
   "$SRC/Tx.java" "$SRC/Money.java" "$SRC/Agent.java" "$PROJ/test/AgentTest.java"
 "$JDK/java" -Dfile.encoding=UTF-8 -cp "$OUT" com.miniledger.app.AgentTest
+
+echo
+echo "=== SpanTest ==="
+"$JDK/javac" -encoding UTF-8 -d "$OUT" \
+  "$SRC/Span.java" "$PROJ/test/SpanTest.java"
+"$JDK/java" -Dfile.encoding=UTF-8 -cp "$OUT" com.miniledger.app.SpanTest
+
+echo
+echo "=== RecurTest ==="
+AJ="$B/sdk/platforms/android-35/android.jar"
+"$JDK/javac" -encoding UTF-8 -cp "$AJ" -d "$OUT" \
+  "$SRC/Span.java" "$SRC/Tx.java" "$SRC/Money.java" "$SRC/Categories.java" "$SRC/Db.java" \
+  "$SRC/Recur.java" "$PROJ/test/RecurTest.java"
+"$JDK/java" -Dfile.encoding=UTF-8 -cp "$OUT:$AJ" com.miniledger.app.RecurTest

@@ -19,6 +19,8 @@ import android.widget.ScrollView;
 import android.widget.Switch;
 import android.widget.TextView;
 
+import java.util.List;
+
 class PageSettings extends Page {
 
     PageSettings(MainActivity a) {
@@ -52,6 +54,10 @@ class PageSettings extends Page {
         // ---------------- 外观
         LinearLayout c0 = section("外观");
         c0.addView(skinRow());
+        c0.addView(Ui.hLine(act));
+        c0.addView(switchRow("深色模式",
+                "晚上看不刺眼；玻璃和极简两套皮肤都有深色版",
+                Skin.dark, (btn, v) -> act.applyDark(v)));
 
         // ---------------- 自动记账
         LinearLayout c1 = section("自动记账");
@@ -106,23 +112,68 @@ class PageSettings extends Page {
         c2.addView(Ui.hLine(act));
 
         long budget = Prefs.budget(act);
-        c2.addView(item("月度预算",
-                budget > 0 ? "花到 80% 和 100% 各提醒一次" : "设个数，超支前提醒你",
+        c2.addView(item(Prefs.cycleStart(act) > 0 ? "预算（按周期算）" : "月度预算",
+                budget > 0 ? "花到 80% 和 100% 各提醒一次；18 点后超日均也会提一句"
+                        : "设个数，超支前提醒你",
                 budget > 0 ? Money.yuan(budget) : "未设置",
                 budget > 0 ? Ui.INK : Ui.FAINT,
                 this::askBudget));
         c2.addView(Ui.hLine(act));
-        c2.addView(item("导入账单 CSV",
-                "微信 / 支付宝导出的账单，用来补历史",
+
+        long cycleStart = Prefs.cycleStart(act);
+        c2.addView(item("生活周期",
+                cycleStart > 0
+                        ? "从 " + Span.md(cycleStart) + " 起算，一个周期一结"
+                        : "按领到生活费那天起算，单独一页按天看",
+                cycleStart > 0 ? "已开启" : "去设置",
+                cycleStart > 0 ? Ui.IN : Ui.BRAND,
+                () -> act.openTab(1)));
+
+        // ---------------- 备份与数据
+        LinearLayout cb = section("备份与数据");
+        cb.addView(item("自动备份",
+                "每周一次，留最近 8 份，存在应用外部目录",
+                "上次 " + Backup.lastLabel(act),
+                Ui.INK,
+                this::backupDialog));
+        cb.addView(Ui.hLine(act));
+        cb.addView(item("导入账单 CSV",
+                "微信 / 支付宝导出的账单，或简账自己导出的备份",
                 "选择文件",
                 Ui.BRAND,
                 act::pickCsv));
-        c2.addView(Ui.hLine(act));
-        c2.addView(item("导出全部账单",
-                "生成 CSV 放到 下载/简账 目录",
+        cb.addView(Ui.hLine(act));
+        cb.addView(item("导出全部账单",
+                "生成 CSV 放到 下载/简账 目录（卸载也留得住）",
                 "导出",
                 Ui.BRAND,
                 () -> act.exportCsv()));
+
+        // ---------------- 固定支出
+        LinearLayout cr = section("固定支出");
+        List<Recur> recurbills = Db.get(act).recurAll();
+        if (recurbills.isEmpty()) {
+            TextView none = Ui.tv(act, "房租、话费、订阅这种每月一次的，到日子会先落一笔进「待确认」",
+                    12, Ui.FAINT);
+            none.setLineSpacing(Ui.d(act, 3), 1f);
+            none.setPadding(0, Ui.d(act, 8), 0, Ui.d(act, 10));
+            cr.addView(none);
+        } else {
+            for (Recur r : recurbills) {
+                cr.addView(item(r.title + "　每月 " + r.day + " 日",
+                        Money.yuan(r.amount) + " · " + r.category
+                                + (r.last.isEmpty() ? "" : " · 上次 " + r.last),
+                        "编辑",
+                        Ui.BRAND,
+                        () -> recurDialog(r)));
+                cr.addView(Ui.hLine(act));
+            }
+        }
+        cr.addView(item("添加固定支出",
+                "到日子不直接扣钱，先进「待确认」等你点头",
+                "添加",
+                Ui.BRAND,
+                () -> recurDialog(null)));
 
         // ---------------- 大模型
         Llm.Cfg cfg = Prefs.llmCfg(act);
@@ -185,11 +236,28 @@ class PageSettings extends Page {
         check.setOnClickListener(v -> refresh());
         c3.addView(check);
 
+        // ---------------- 诊断
+        if (Crash.has(act)) {
+            LinearLayout cd = section("诊断");
+            cd.addView(item("上次的崩溃日志",
+                    "页面画崩了会把堆栈记在这里，方便回查",
+                    "查看",
+                    Ui.WARN,
+                    this::showCrash));
+        }
+
         // ---------------- 关于
         LinearLayout c4 = section("关于");
+        c4.addView(item("桌面小组件",
+                "长按桌面 → 小组件 → 简账；显示本周期剩余和今天还能花",
+                "已内置",
+                Ui.FAINT,
+                null));
+        c4.addView(Ui.hLine(act));
         TextView about = Ui.tv(act,
                 "简账 1.0 · 纯本地记账，不联网、不上传。\n" +
-                "所有账单只存在这台手机的 SQLite 里，卸载即清空。",
+                "账单存在这台手机的 SQLite 里；自动备份是兜底，\n" +
+                "重要的那份请定期用「导出全部账单」放去下载目录。",
                 12.5f, Ui.SUB);
         about.setLineSpacing(Ui.d(act, 5), 1f);
         c4.addView(about);
@@ -299,9 +367,9 @@ class PageSettings extends Page {
 
     private TextView skinChip(String name, boolean glass) {
         boolean on = Skin.glass == glass;
-        TextView t = Ui.tv(act, name, 13, on ? 0xFFFFFFFF : Ui.INK);
+        TextView t = Ui.tv(act, name, 13, on ? Ui.ON_BRAND : Ui.INK);
         t.setGravity(Gravity.CENTER);
-        t.setBackground(Ui.round(on ? Ui.BRAND : (Skin.glass ? 0x33FFFFFF : Ui.ROW), 10, act));
+        t.setBackground(Ui.round(on ? Ui.BRAND : Ui.chipBg(act), 10, act));
         t.setOnClickListener(v -> {
             if (Skin.glass != glass) act.applySkin(glass);
         });
@@ -349,6 +417,175 @@ class PageSettings extends Page {
                 act.runOnUiThread(() -> act.toast("失败：" + (e.getMessage() == null ? "未知错误" : e.getMessage())));
             }
         }).start();
+    }
+
+    private void showCrash() {
+        new AlertDialog.Builder(act)
+                .setTitle("崩溃日志")
+                .setMessage(Crash.read(act))
+                .setNegativeButton("清空", (d, w) -> {
+                    Crash.clear(act);
+                    refresh();
+                })
+                .setPositiveButton("知道了", null)
+                .show();
+    }
+
+    /** 备份：立即 / 恢复 / 看路径。 */
+    private void backupDialog() {
+        final String[] items = {
+                "立即备份",
+                Backup.latest(act) == null ? "还没有备份可恢复" : "从最近备份恢复",
+                "备份放在哪"
+        };
+        new AlertDialog.Builder(act)
+                .setTitle("备份与恢复")
+                .setItems(items, (d, which) -> {
+                    if (which == 0) {
+                        act.toast("正在备份…");
+                        new Thread(() -> {
+                            try {
+                                final String m = Backup.run(act);
+                                act.runOnUiThread(() -> {
+                                    act.toast(m);
+                                    refresh();
+                                });
+                            } catch (final Throwable t) {
+                                act.runOnUiThread(() -> act.toast("备份失败：" + msg(t)));
+                            }
+                        }).start();
+                    } else if (which == 1) {
+                        if (Backup.latest(act) == null) {
+                            act.toast("还没有备份文件");
+                            return;
+                        }
+                        new AlertDialog.Builder(act)
+                                .setTitle("恢复最近备份")
+                                .setMessage("按单号去重，重复恢复不会产生重复账。\n\n"
+                                        + "备份时间：" + Backup.lastLabel(act))
+                                .setNegativeButton("取消", null)
+                                .setPositiveButton("恢复", (dd, w) -> restore())
+                                .show();
+                    } else {
+                        new AlertDialog.Builder(act)
+                                .setTitle("备份目录")
+                                .setMessage(Backup.dir(act).getAbsolutePath()
+                                        + "\n\n共 " + Backup.count(act) + " 份，保留最近 8 份。")
+                                .setPositiveButton("知道了", null)
+                                .show();
+                    }
+                })
+                .show();
+    }
+
+    private void restore() {
+        act.toast("正在恢复…");
+        new Thread(() -> {
+            try {
+                final CsvImport.Result r = Backup.restoreLatest(act);
+                act.runOnUiThread(() -> {
+                    act.toast(r.msg);
+                    act.refreshAll();
+                    refresh();
+                });
+            } catch (final Throwable t) {
+                act.runOnUiThread(() -> act.toast("恢复失败：" + msg(t)));
+            }
+        }).start();
+    }
+
+    private static String msg(Throwable t) {
+        return t.getMessage() == null ? "未知错误" : t.getMessage();
+    }
+
+    /** 添加 / 编辑固定支出。 */
+    private void recurDialog(final Recur old) {
+        final Recur r = old == null ? new Recur() : old;
+
+        LinearLayout box = new LinearLayout(act);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(Ui.d(act, 20), Ui.d(act, 4), Ui.d(act, 20), 0);
+
+        final EditText title = input("名称，比如 房租 / 话费", r.title);
+        box.addView(title);
+        final EditText amount = input("金额", r.amount > 0 ? Money.fmt(r.amount).replace(",", "") : "");
+        amount.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        box.addView(amount);
+        final EditText day = input("每月几号（1-31，月末不够就落月末）", String.valueOf(r.day));
+        day.setInputType(InputType.TYPE_CLASS_NUMBER);
+        box.addView(day);
+
+        final String[] cat = {r.category};
+        final TextView catTv = Ui.tv(act, "分类　" + cat[0], 13, Ui.SUB);
+        catTv.setPadding(Ui.d(act, 12), Ui.d(act, 10), Ui.d(act, 12), Ui.d(act, 10));
+        catTv.setBackground(Ui.round(Ui.chipBg(act), 10, act));
+        LinearLayout.LayoutParams catLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        catLp.topMargin = Ui.d(act, 10);
+        box.addView(catTv, catLp);
+        catTv.setOnClickListener(v -> {
+            final String[] cats = Categories.of(Tx.OUT);
+            new AlertDialog.Builder(act)
+                    .setTitle("分类")
+                    .setItems(cats, (d, w) -> {
+                        cat[0] = cats[w];
+                        catTv.setText("分类　" + cat[0]);
+                    })
+                    .show();
+        });
+
+        final AlertDialog.Builder bld = new AlertDialog.Builder(act)
+                .setTitle(old == null ? "添加固定支出" : "编辑固定支出")
+                .setView(box)
+                .setNegativeButton("取消", null)
+                .setPositiveButton("保存", (d, w) -> {
+                    String t = title.getText().toString().trim();
+                    long cents = Money.parse(amount.getText().toString());
+                    int dd;
+                    try {
+                        dd = Integer.parseInt(day.getText().toString().trim());
+                    } catch (Exception e) {
+                        dd = 1;
+                    }
+                    if (t.isEmpty()) {
+                        act.toast("给它起个名字");
+                        return;
+                    }
+                    if (cents <= 0) {
+                        act.toast("金额不对");
+                        return;
+                    }
+                    r.title = t;
+                    r.amount = cents;
+                    r.day = Math.max(1, Math.min(31, dd));
+                    r.category = cat[0];
+                    Db.get(act).recurSave(r);
+                    refresh();
+                    Housekeeping.run(act);
+                });
+        if (old != null) {
+            bld.setNeutralButton("删除", (d, w) -> {
+                Db.get(act).recurDel(old.id);
+                refresh();
+                act.toast("已删除");
+            });
+        }
+        bld.show();
+    }
+
+    private EditText input(String hint, String value) {
+        EditText et = new EditText(act);
+        et.setHint(hint);
+        et.setText(value == null ? "" : value);
+        et.setSingleLine(true);
+        et.setTextSize(14);
+        et.setPadding(Ui.d(act, 12), Ui.d(act, 10), Ui.d(act, 12), Ui.d(act, 10));
+        et.setBackground(Ui.round(Ui.chipBg(act), 10, act));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.bottomMargin = Ui.d(act, 10);
+        et.setLayoutParams(lp);
+        return et;
     }
 
     private void askBudget() {

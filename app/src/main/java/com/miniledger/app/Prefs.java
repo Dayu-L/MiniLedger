@@ -41,6 +41,24 @@ final class Prefs {
         sp(c).edit().putBoolean("glass", v).apply();
     }
 
+    /** 深色皮肤，和玻璃/极简是两个维度。 */
+    static boolean dark(Context c) {
+        return sp(c).getBoolean("dark", false);
+    }
+
+    static void setDark(Context c, boolean v) {
+        sp(c).edit().putBoolean("dark", v).apply();
+    }
+
+    /** 上次自动备份的时间戳。 */
+    static long lastBackup(Context c) {
+        return sp(c).getLong("last_backup", 0L);
+    }
+
+    static void setLastBackup(Context c, long ts) {
+        sp(c).edit().putLong("last_backup", ts).apply();
+    }
+
     /** 月度预算，单位分；0 表示没设。 */
     static long budget(Context c) {
         return sp(c).getLong("budget", 0L);
@@ -48,6 +66,24 @@ final class Prefs {
 
     static void setBudget(Context c, long cents) {
         sp(c).edit().putLong("budget", cents).apply();
+    }
+
+    /** 账期（生活周期）起始日，当天 00:00 的毫秒；0 = 没设。 */
+    static long cycleStart(Context c) {
+        return sp(c).getLong("cycle_start", 0L);
+    }
+
+    static void setCycleStart(Context c, long dayStart) {
+        sp(c).edit().putLong("cycle_start", dayStart).apply();
+    }
+
+    /** 账期长度：0 = 按自然月对齐起始日；>0 = 固定 N 天。 */
+    static int cycleDays(Context c) {
+        return sp(c).getInt("cycle_days", 0);
+    }
+
+    static void setCycleDays(Context c, int days) {
+        sp(c).edit().putInt("cycle_days", Math.max(0, days)).apply();
     }
 
     static boolean alerted(Context c, String key) {

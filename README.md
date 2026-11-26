@@ -2,10 +2,12 @@
 
 自用的安卓记账本：监听微信 / 支付宝的付款通知自动记账，也可以直接说一句话记一笔。
 
-- 包名 `com.miniledger.app`　版本 1.0　minSdk 26 / targetSdk 35
-- 产物：`dist/miniledger.apk`（约 73 KB）
+- 包名 `com.miniledger.app`　版本 1.1　minSdk 26 / targetSdk 35
+- 产物：`dist/miniledger.apk`（约 85 KB）
 - 纯 framework Java + 代码搭 UI，**不依赖 androidx / Gradle**，用仓库现成的 WSL 工具链直接 aapt2 + javac + d8 编译
 - 通知监听自动记账 + 自然语言助手（本地规则 / 可选大模型）
+- 时间戳精确到日：账目按天显示，记一笔可以选日期
+- 生活周期（账期）：从领到生活费那天起算，单独一页按天记账
 - 两套界面皮肤：玻璃 / 极简，设置里一键切换
 - 纯本地存储；不开大模型时完全离线
 
@@ -109,16 +111,91 @@ respond(text)
 **默认关闭**，关着的时候完全离线——`INTERNET` 权限只在开启后才会用到。
 
 
-**月度预算**：`设置 → 月度预算`，输入一个数。账页顶部会出现一条进度；花到 80% 和 100% 各发一次通知，
-按月去重（同一个阈值一个月只响一次）。超支后进度条变红。
+**预算**：`设置 → 月度预算`。账期开着时按**周期**算，否则按自然月：
+
+- 花到 80% 和 100% 各提醒一次，按窗口去重（`c<周期起始日>` / `2026-11`）
+- 18 点后当天花超「日均额度」（预算 ÷ 窗口天数）再轻提醒一次，一天只响一次
+- 账页画的是月度口径，周期页画的是周期口径，两者各看各的
 
 **商户记忆**：你只要在某一笔上改过分类（长按账单 → 编辑，或在待确认里点「改分类」），
 系统就把「商户 → 分类」写进规则表，之后同一个商户自动落这个分类。
 规则就是 `rule` 表里的 `kw → cat`，可以随手清：删掉 `ledger.db` 重装即可。
 
-## 界面：两套皮肤
+## 时间戳（精确到日）
 
-`设置 → 外观` 切换，选完立即重建界面，当前页签不丢。
+每笔账内部还是 epoch 毫秒（`tx.ts`），但账本只按「天」结算：月、日、账期的边界都落在当地 `00:00`。
+
+- 账单行显示 `今天 14:32` / `昨天 09:05` / `11月23日 20:11`，跨年才带年份。
+- `记一笔` / `编辑` 多了一行日期：点它调系统日历，或用右边的 `今天` / `昨天` 快捷键。
+  改日期只动年月日，时:分沿用原来那一刻，所以补记昨天的账不会把顺序打乱。
+- 日期算法都在 `Span.java`：`dayStartOf` / `addDays` / `addMonths` / `dayDiff`，纯 `java.util`，自带单测。
+
+## 生活周期（第二个页签「周期」）
+
+从领到生活费那天起算，一个周期一结，和自然月账本并行存在——两边看的是同一批账，只是切法不同。
+
+第一次进来先定起点：`从今天开始`，或 `选个日期` 挑领钱那天。以后点右上角 `起始日` 随时改。
+
+| 部分 | 内容 |
+| --- | --- |
+| 周期长度 | 默认按自然月对齐起始日（11月24日 → 12月24日）；也可以切成固定 30 天 |
+| 顶部卡片 | 本周期起止、`第 3 天 / 共 30 天 · 还剩 27 天`、本周期支出 / 收入、预算条、`日均 ¥xx · 按预算每天还能花 ¥yy` |
+| ‹ › | 翻历史周期，翻到第一个周期就停；不能翻到未来 |
+| 账目列表 | 按天分组：`11月24日 周一　支出 ¥86.00` 小标题 + 当天每一笔（`食堂 · 餐饮 · 现金 · 12:10`）；点开编辑，长按删除 |
+| 环比 | 卡片底部一行「比上个周期少花 ¥xx（↓12%）」；没有上一期就不显示 |
+| 开新周期 | 「生活费到账了？从今天开新周期」，只改周期起点，账目不动 |
+
+- 预算沿用 `设置 → 月度预算` 那个数（一个周期≈一个月），在周期页按周期区间算。
+- 换起始日、换周期长度只改「怎么切」，账目本身不动，也不会写库。
+- 月底起算不会漂：1 月 31 日 → 2 月 28 日 → 3 月 31 日（每期终点都从起始日推，而不是从上一期末尾推）。
+- 记一笔**收入**（工资 / 生活费 / 红包，退款和理财不打扰）且日期晚于周期起点时，会问一句「以这天为新账期起点？」。
+
+## 搜索与筛选
+
+账单页右上角「搜索」展开筛选条：
+
+- 关键词：商户 / 备注 / 分类 / 原始通知文本都过一遍 LIKE
+- 分类 chip：支出 11 类 + 收入 5 类，点「全部」清掉
+- 金额区间：`金额≥` / `金额≤`，填一边也行
+- 只要有条件就跨**全部时间**查，卡片标题变成「全部时间 · N 笔」，月份箭头隐藏；关掉搜索自动清空
+
+账单列表和周期页共用 `DayAdapter`，都是按天分组：`今天 · 周六　支出 ¥86.00` 打头，
+当天每一笔挂在下面（时间只显示 `12:10`，日期不重复）。列表底部还留着日合计。
+
+## 删除可以撤销
+
+账单 / 周期 / 待确认里删掉一笔，底部会浮出一条黑条（`MainActivity.snack`），点「撤销」把这一笔原样放回去。
+`Db.restore()` 保留全部字段（含状态、单号），所以从待确认撤销回去还在待确认。
+
+## 备份与恢复
+
+- 每周一次自动备份（`GuardJob` / 打开 App 时判断），也可以在 `设置 → 自动备份` 里立即备份
+- 位置：应用外部目录 `Android/data/com.miniledger.app/files/backup`，留最近 8 份
+- 恢复：`从最近备份恢复`，导入按**单号**去重，重复恢复不会翻倍
+- 备份跟着 App 走，卸载会被清掉；真要留底就用 `导出全部账单` → `下载/简账/`
+- 导出的 CSV 加了「单号」列，微信/支付宝账单和简账备份走同一个导入入口（`CsvImport` 先看表头再决定用哪个解析器）
+
+## 固定支出
+
+`设置 → 固定支出 → 添加`：名称、金额、每月几号、分类。
+
+- 到日子（当天 12:00 之后）自动落一笔进**待确认**，不静默扣钱，点「确认」才进账本
+- 日期超过当月天数就落到月末（31 号 → 2 月 28 日）
+- 每月只落一次（`last = 2026-11` 去重）；删规则不动已经落下的账
+- 判断逻辑在 `Recur.java`，纯 `java.util`，有单测（`test/RecurTest.java`）
+
+## 桌面小组件
+
+长按桌面 → 小组件 → 简账（2×1）：本周期（没开账期就是本月）还剩多少、今天还能花多少，点一下进「周期」页。
+
+- 30 分钟系统刷新 + 每次入账 / 打开 App 主动刷（`WidgetProvider.refresh`）
+- 深色皮肤会自动换深色底图
+- 数据由 `WidgetProvider.build()` 现场算，不另存一份
+
+
+## 界面：两套皮肤 × 浅色 / 深色
+
+`设置 → 外观` 切换皮肤，`深色模式` 是另一个开关，两两组合共 4 种；选完立即重建界面，当前页签不丢。
 
 | | 玻璃（默认） | 极简 |
 | --- | --- | --- |
@@ -134,6 +211,10 @@ respond(text)
 配色/字号只有一套：12 / 13 / 15 / 16 / 20 / 28，灰色两级 `#4B5058` / `#5F6368`，都过 4.5:1。
 改色只改 `Ui.java` 顶部的常量，两套皮肤同时生效。
 
+深色靠 `Skin.apply()` 把 `Ui` 的同一组 token 换一整套（`INK #E8EBEF`、`BG #0D1114`、`BRAND #35B3A6`），
+页面代码不用知道深色模式存在。BRAND 变亮后白字不够读，所以实心块上的文字统一用 `Ui.ON_BRAND`。
+Activity 在深色时换 `AppThemeDark`，对话框 / 输入框 / 开关跟着一起变暗；状态栏图标也切成浅色。
+
 预览图：`design/glass.png`、`design/minimal.png`（`design/mock.html` 是同一套 token 的浏览器稿，
 `#minimal` 锚点看极简版）。
 
@@ -145,7 +226,7 @@ respond(text)
 | 层 | 实现 | 作用 |
 | --- | --- | --- |
 | 前台服务 | `GuardService`（`specialUse` 类型，常驻通知显示今日支出） | 抬高进程优先级，不易被回收 |
-| 周期自检 | `GuardJob` JobScheduler 每 15 分钟，`setPersisted(true)` | 检查授权、`requestRebind` 重新绑定监听、拉起服务 |
+| 周期自检 | `GuardJob` JobScheduler 每 15 分钟，`setPersisted(true)` | 检查授权、`requestRebind` 重新绑定监听、拉起服务，顺便跑 `Housekeeping` |
 | 闹钟兜底 | `HeartbeatReceiver` AlarmManager `setAndAllowWhileIdle` | JobScheduler 被 ROM 掐掉时的后手 |
 | 开机恢复 | `BootReceiver`（BOOT_COMPLETED / MY_PACKAGE_REPLACED） | 重启后自动恢复 |
 
@@ -177,35 +258,44 @@ wsl -d Ubuntu -- bash -lc 'cd "/mnt/c/Users/llyyt/Desktop/项目文件/MiniLedge
 MiniLedger/
   build.sh                     aapt2 + javac + d8 + apksigner
   app/src/main/
-    AndroidManifest.xml        监听服务 / 前台服务 / JobService / 开机广播
+    AndroidManifest.xml        监听服务 / 前台服务 / JobService / 开机广播 / 桌面小组件
     java/com/miniledger/app/
-      MainActivity.java        5 个页签 + CSV 选文件
-      PageBills.java           账单（月切换、预算条、手动记账 FAB）
+      MainActivity.java        6 个页签 + 深色切换 + 底部 snack + CSV 选文件
+      PageBills.java           账单（月切换、搜索筛选、预算条、手动记账 FAB）
+      PageCycle.java           生活周期（起始日、按天分组、周期预算、环比）
       PageChat.java            记账助手（对话 + 草稿卡片）
-      PagePending.java         待确认
-      PageStats.java           统计（7 日柱状图、分类排行）
-      PageSettings.java        权限、保活、预算、大模型配置
-      AddDialog.java           记一笔 / 编辑
-      TxAdapter.java           账单行
+      PagePending.java         待确认（同商户批量确认 / 改分类）
+      PageStats.java           统计（自然月/周期、逐日柱、分类环比、商户排行）
+      PageSettings.java        权限、保活、预算、备份、固定支出、外观、大模型
+      AddDialog.java           记一笔 / 编辑（可选择日期）
+      DayAdapter.java          账单行 + 按天分组（账单页和周期页共用）
       Agent.java               自然语言 → 交易（纯规则，可单测）
       Llm.java                 OpenAI 兼容接口 + 宽松 JSON 解析
       NotifyListener.java      通知监听
       Parser.java              文本 → 交易
-      Db.java                  SQLite（tx / rule）+ 商户记忆
-      Budget.java              月度预算与阈值提醒
-      CsvImport.java           微信/支付宝账单导入 + 导出
+      Db.java                  SQLite（tx / rule / recur）+ 搜索 + 商户记忆
+      Budget.java              预算窗口（周期 / 自然月）+ 阈值与日均提醒
+      CycleCheck.java          周期结算提醒（最后一天 20 点后）
+      Recur.java               固定支出（纯 java.util，可单测）
+      Backup.java              每周自动备份 / 恢复
+      Housekeeping.java        低频巡检（固定支出、结算、预算、小组件）
+      WidgetProvider.java      桌面小组件
+      Span.java                日期 / 月 / 账期边界（纯 java.util，可单测）
+      CsvImport.java           微信/支付宝账单导入 + 导出（含简账备份格式）
       GuardService.java        前台服务
       GuardJob.java            15 分钟自检
       HeartbeatReceiver.java   闹钟兜底
       BootReceiver.java        开机恢复
-      Notifier.java            通知渠道
-      Skin.java                当前皮肤
+      Notifier.java            通知渠道（预算 / 日均 / 周期结算）
+      Skin.java                当前皮肤（玻璃/极简 × 浅色/深色）
       Aurora.java              玻璃皮肤的极光底
-      Ui.java                  控件工厂、配色、卡片材质
-    res/                       主题、自适应图标、通知小图标
+      Ui.java                  控件工厂、配色 token、卡片材质
+    res/                       主题（浅/深）、自适应图标、通知图标、小组件布局与背景
   test/ParserTest.java         通知解析自测（18 个用例）
   test/AgentTest.java          助手解析自测（36 个用例）
-  test/run-tests.sh            一次跑完两个测试（纯 JVM）
+  test/SpanTest.java           日期 / 账期自测（32 个用例）
+  test/RecurTest.java          固定支出到期判断自测（11 个用例）
+  test/run-tests.sh            一次跑完四个测试（纯 JVM）
   design/mock.html             设计稿（账单页，同一套 token 的浏览器版）
   design/mock-chat.html        设计稿（助手页）
   design/glass.png             玻璃皮肤预览（浏览器设计稿）
@@ -220,7 +310,9 @@ MiniLedger/
 
 ## 真机验证（HONOR 200 / MagicOS）
 
-已装到真机跑过五个页签，走通了「说一句话 → 出草稿 → 点记入 → 账单里出现」的完整链路。
+已装到真机跑过当时那五个页签，走通了「说一句话 → 出草稿 → 点记入 → 账单里出现」的完整链路。
+（时间戳 / 周期 / 搜索 / 备份 / 固定支出 / 小组件 / 深色这一批是后加的，
+目前只过了全量编译 + 4 个纯 JVM 单测（97 个用例），还没重新上机。）
 
 真机暴露并修掉的问题（模拟器和浏览器设计稿都看不出来）：
 
@@ -234,7 +326,21 @@ MiniLedger/
 | 统计页没预算却显示「超支」 | 把「收入-支出」的负数当成了超支 | 改成「净支出」，红色只留给真的超预算 |
 | 只有两笔账时列表卡片撑满整屏 | 卡片恒为 weight=1 | 6 笔以内按内容高度，超过才占满并滚动 |
 
+## 闪退排查
+
+- `Crash.java` 把未捕获的堆栈追加到 `files/crash.log`（超过 100KB 重开一份），不吞异常。
+- `MainActivity.safeRefresh()` 包住每个页面的 `refresh()`：某一页画崩了只记日志，不会把整个 App 带走。
+  所以如果某一页突然空白，先去 `设置 → 诊断 → 上次的崩溃日志` 看堆栈。
+- 已知修掉的一个：统计页的 `TrendView` 曾经在构造里建一次、每次 `refresh()` 又挂到新卡片上，
+  而 `removeAllViews()` 只摘直系子视图，第二次渲染就抛
+  `IllegalStateException: The specified child already has a parent`——表现就是来回切页签 / 连记两笔闪退。
+  现在每次 `refresh()` 新建一个 `TrendView`。
+
 ## 已知限制
 - 微信/支付宝的通知格式会随版本变，解析是「尽力而为」；漏掉的用账单 CSV 补。
 - 无障碍自动抓取（能拿到 100% 准确的金额）没有做——UI 改版就废，维护成本太高，自用不值当。
-- 记账数据在应用私有目录，卸载即清空。重要数据请定期 `设置 → 导出全部账单`。
+- 记账数据在应用私有目录，卸载即清空。自动备份在 `Android/data/...` 下，卸载也会一起走；
+  真正要留底的用 `设置 → 导出全部账单`（存到 `下载/简账/`）。
+- 自动备份按「打开 App / 15 分钟自检」触发，不是固定闹钟；一周开一次就够。
+- 小组件靠系统 30 分钟一刷，加上入账/打开 App 时主动推；不适时秒级更新。
+- 周期结算提醒只在最后一天 20:00 之后、且 App/自检还活着的时候发；不保证准点。

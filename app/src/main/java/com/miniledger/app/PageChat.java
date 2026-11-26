@@ -80,9 +80,12 @@ class PageChat extends Page {
 
         // 输入
         LinearLayout inputWrap = Ui.row(a);
-        inputWrap.setBackground(Ui.round(Skin.glass ? 0xCCFFFFFF : 0xFFFFFFFF, 14, a));
-        if (Skin.glass) inputWrap.setBackground(Ui.roundStroke(0xCCFFFFFF, 14, 0x1F11151A, 1, a));
-        else inputWrap.setBackground(Ui.roundStroke(0xFFFFFFFF, 14, Ui.LINE, 1, a));
+        inputWrap.setBackground(Ui.round(Skin.glass
+                ? (Skin.dark ? 0xCC1B2126 : 0xCCFFFFFF) : Ui.CARD, 14, a));
+        if (Skin.glass) inputWrap.setBackground(Ui.roundStroke(
+                Skin.dark ? 0xCC1B2126 : 0xCCFFFFFF, 14,
+                Skin.dark ? 0x1FFFFFFF : 0x1F11151A, 1, a));
+        else inputWrap.setBackground(Ui.roundStroke(Ui.CARD, 14, Ui.LINE, 1, a));
         inputWrap.setPadding(Ui.d(a, 14), Ui.d(a, 5), Ui.d(a, 5), Ui.d(a, 5));
         LinearLayout.LayoutParams iw = new LinearLayout.LayoutParams(MATCH, WRAP);
         iw.setMargins(Ui.d(a, 16), Ui.d(a, 10), Ui.d(a, 16), Ui.d(a, 10));
@@ -97,10 +100,10 @@ class PageChat extends Page {
         input.setPadding(0, Ui.d(a, 6), 0, Ui.d(a, 6));
         inputWrap.addView(input, new LinearLayout.LayoutParams(0, WRAP, 1f));
 
-        TextView send = Ui.tv(a, "发送", 13, 0xFFFFFFFF);
+        TextView send = Ui.tv(a, "发送", 13, Ui.ON_BRAND);
         send.setGravity(Gravity.CENTER);
         send.setPadding(Ui.d(a, 16), Ui.d(a, 8), Ui.d(a, 16), Ui.d(a, 8));
-        send.setBackground(Ui.round(0xFF1D1F20, 10, a));
+        send.setBackground(Ui.round(Ui.BRAND, 10, a));
         LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(WRAP, WRAP);
         slp.leftMargin = Ui.d(a, 8);
         inputWrap.addView(send, slp);
@@ -440,10 +443,10 @@ class PageChat extends Page {
 
     private View userBubble(Msg m) {
         FrameLayout wrap = new FrameLayout(act);
-        TextView t = Ui.tv(act, m.text, 14, 0xFFFFFFFF);
+        TextView t = Ui.tv(act, m.text, 14, Ui.FAB_FG);
         t.setLineSpacing(Ui.d(act, 3), 1f);
         t.setPadding(Ui.d(act, 14), Ui.d(act, 10), Ui.d(act, 14), Ui.d(act, 10));
-        t.setBackground(Ui.round(0xFF1D1F20, 16, act));
+        t.setBackground(Ui.round(Ui.FAB_BG, 16, act));
         t.setMaxWidth(maxBubbleWidth());
         wrap.addView(t, new FrameLayout.LayoutParams(WRAP, WRAP, Gravity.END));
         return wrap;
@@ -457,10 +460,11 @@ class PageChat extends Page {
             bx.setOrientation(LinearLayout.VERTICAL);
             bx.setPadding(Ui.d(act, 14), Ui.d(act, 11), Ui.d(act, 14), Ui.d(act, 11));
             if (Skin.glass) {
-                bx.setBackground(Ui.roundStroke(0x96FFFFFF, 16, 0x1F11151A, 1, act));
+                bx.setBackground(Ui.roundStroke(Skin.dark ? 0xCC1B2126 : 0x96FFFFFF, 16,
+                        Skin.dark ? 0x1FFFFFFF : 0x1F11151A, 1, act));
                 bx.setElevation(Ui.d(act, 3));
             } else {
-                bx.setBackground(Ui.roundStroke(0xFFFFFFFF, 16, Ui.LINE, 1, act));
+                bx.setBackground(Ui.roundStroke(Ui.CARD, 16, Ui.LINE, 1, act));
             }
 
             TextView t = Ui.tv(act, m.text, 14, Ui.INK);

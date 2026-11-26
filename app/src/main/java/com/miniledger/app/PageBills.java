@@ -2,10 +2,15 @@ package com.miniledger.app;
 
 import android.app.AlertDialog;
 import android.graphics.drawable.ColorDrawable;
+import android.text.Editable;
+import android.text.InputType;
+import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
@@ -17,7 +22,7 @@ class PageBills extends Page {
 
     private final ListView list;
     private final ArrayList<Tx> data = new ArrayList<>();
-    private final TxAdapter adapter;
+    private final DayAdapter adapter;
     private final TextView monthTv;
     private final TextView outTv;
     private final TextView inTv;
@@ -25,7 +30,16 @@ class PageBills extends Page {
     private final LinearLayout budgetBox;
     private final LinearLayout cardWrap;
     private final FrameLayout cardInner;
+    private final LinearLayout filterBar;
+    private final EditText kwEt;
+    private final EditText minEt;
+    private final EditText maxEt;
+    private final TextView prevTv;
+    private final TextView nextTv;
+    private final TextView emptyTv;
     private int offset = 0;
+    private String cat = "";
+    private String catShown = "";
 
     PageBills(MainActivity a) {
         super(a);
@@ -43,7 +57,80 @@ class PageBills extends Page {
                 ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         statusTv = Ui.tv(a, "", 12, Ui.FAINT);
         top.addView(statusTv);
+
+        TextView searchBtn = Ui.tv(a, "搜索", 12, Ui.SUB);
+        searchBtn.setPadding(Ui.d(a, 10), Ui.d(a, 5), Ui.d(a, 10), Ui.d(a, 5));
+        searchBtn.setBackground(Ui.round(Ui.chipBg(a), 10, a));
+        LinearLayout.LayoutParams sbLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        sbLp.leftMargin = Ui.d(a, 10);
+        top.addView(searchBtn, sbLp);
         col.addView(top);
+
+        // ---- 搜索条（默认收起）
+        filterBar = new LinearLayout(a);
+        filterBar.setOrientation(LinearLayout.VERTICAL);
+        filterBar.setVisibility(View.GONE);
+        LinearLayout.LayoutParams fbLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        fbLp.setMargins(Ui.d(a, 16), Ui.d(a, 10), Ui.d(a, 16), 0);
+        col.addView(filterBar, fbLp);
+
+        LinearLayout fRow = Ui.row(a);
+        kwEt = new EditText(a);
+        kwEt.setHint("搜商户 / 备注 / 分类");
+        kwEt.setTextSize(14);
+        kwEt.setSingleLine(true);
+        kwEt.setBackground(Ui.round(Ui.chipBg(a), 10, a));
+        kwEt.setPadding(Ui.d(a, 12), Ui.d(a, 6), Ui.d(a, 12), Ui.d(a, 6));
+        fRow.addView(kwEt, new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        minEt = amountEt(a, "金额≥");
+        maxEt = amountEt(a, "≤");
+        fRow.addView(minEt, new LinearLayout.LayoutParams(Ui.d(a, 76),
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+        fRow.addView(maxEt, new LinearLayout.LayoutParams(Ui.d(a, 66),
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+        filterBar.addView(fRow);
+
+        HorizontalScrollView hs = new HorizontalScrollView(a);
+        hs.setHorizontalScrollBarEnabled(false);
+        LinearLayout chips = new LinearLayout(a);
+        chips.setOrientation(LinearLayout.HORIZONTAL);
+        chips.setPadding(0, Ui.d(a, 8), 0, 0);
+        for (String c : allCats()) {
+            chips.addView(catChip(a, chips, c));
+        }
+        hs.addView(chips, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        filterBar.addView(hs);
+
+        searchBtn.setOnClickListener(v -> {
+            boolean show = filterBar.getVisibility() != View.VISIBLE;
+            filterBar.setVisibility(show ? View.VISIBLE : View.GONE);
+            if (show) kwEt.requestFocus();
+            else clearFilter();
+            refresh();
+        });
+
+        TextWatcher watcher = new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int st, int c, int a2) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int st, int b, int c) {
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                if (filterBar.getVisibility() == View.VISIBLE) refresh();
+            }
+        };
+        kwEt.addTextChangedListener(watcher);
+        minEt.addTextChangedListener(watcher);
+        maxEt.addTextChangedListener(watcher);
 
         // ---- 月度卡片
         LinearLayout head = Ui.card(a);
@@ -54,14 +141,14 @@ class PageBills extends Page {
         col.addView(head, hp);
 
         LinearLayout monthRow = Ui.row(a);
-        TextView prev = arrow("‹");
-        TextView next = arrow("›");
+        prevTv = arrow("‹");
+        nextTv = arrow("›");
         monthTv = Ui.tv(a, "", 13, Ui.SUB);
         monthTv.setGravity(Gravity.CENTER);
-        monthRow.addView(prev, new LinearLayout.LayoutParams(Ui.d(a, 40), Ui.d(a, 34)));
+        monthRow.addView(prevTv, new LinearLayout.LayoutParams(Ui.d(a, 40), Ui.d(a, 34)));
         monthRow.addView(monthTv, new LinearLayout.LayoutParams(0,
                 ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        monthRow.addView(next, new LinearLayout.LayoutParams(Ui.d(a, 40), Ui.d(a, 34)));
+        monthRow.addView(nextTv, new LinearLayout.LayoutParams(Ui.d(a, 40), Ui.d(a, 34)));
         head.addView(monthRow);
 
         LinearLayout amtRow = Ui.row(a);
@@ -94,11 +181,11 @@ class PageBills extends Page {
         budgetBox.setOrientation(LinearLayout.VERTICAL);
         head.addView(budgetBox);
 
-        prev.setOnClickListener(v -> {
+        prevTv.setOnClickListener(v -> {
             offset--;
             refresh();
         });
-        next.setOnClickListener(v -> {
+        nextTv.setOnClickListener(v -> {
             if (offset < 0) {
                 offset++;
                 refresh();
@@ -126,30 +213,32 @@ class PageBills extends Page {
         list.setPadding(Ui.d(a, 16), 0, Ui.d(a, 16), Ui.d(a, 8));
         list.setClipToPadding(false);
         list.setVerticalScrollBarEnabled(false);
-        adapter = new TxAdapter(a, data);
+        adapter = new DayAdapter(a, data);
         list.setAdapter(adapter);
         fl.addView(list, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
-        TextView empty = Ui.tv(a, "这个月还没有账\n点右下角 ＋ 记一笔，或去「设置」导入账单", 13, Ui.FAINT);
-        empty.setGravity(Gravity.CENTER);
-        empty.setLineSpacing(Ui.d(a, 4), 1f);
-        fl.addView(empty, new FrameLayout.LayoutParams(
+        emptyTv = Ui.tv(a, "这个月还没有账\n点右下角 ＋ 记一笔，或去「设置」导入账单", 13, Ui.FAINT);
+        emptyTv.setGravity(Gravity.CENTER);
+        emptyTv.setLineSpacing(Ui.d(a, 4), 1f);
+        fl.addView(emptyTv, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        list.setEmptyView(empty);
+        list.setEmptyView(emptyTv);
 
         list.setOnItemClickListener((parent, view, pos, id) -> {
-            if (pos >= 0 && pos < data.size()) AddDialog.show(act, data.get(pos));
+            Object o = adapter.item(pos);
+            if (o instanceof Tx) AddDialog.show(act, (Tx) o);
         });
         list.setOnItemLongClickListener((parent, view, pos, id) -> {
-            if (pos >= 0 && pos < data.size()) menu(data.get(pos));
-            return true;
+            Object o = adapter.item(pos);
+            if (o instanceof Tx) menu((Tx) o);
+            return o instanceof Tx;
         });
 
         // ---- 悬浮按钮
-        TextView fab = Ui.tv(a, "＋", 26, 0xFFFFFFFF);
+        TextView fab = Ui.tv(a, "＋", 26, Ui.FAB_FG);
         fab.setGravity(Gravity.CENTER);
-        fab.setBackground(Ui.circle(0xFF1D1F20, a));
+        fab.setBackground(Ui.circle(Ui.FAB_BG, a));
         fab.setElevation(Ui.d(a, 10));
         FrameLayout.LayoutParams fp = new FrameLayout.LayoutParams(
                 Ui.d(a, 56), Ui.d(a, 56), Gravity.BOTTOM | Gravity.END);
@@ -158,15 +247,74 @@ class PageBills extends Page {
         fab.setOnClickListener(v -> AddDialog.show(act, null));
     }
 
-    private TextView arrow(String s) {
-        TextView t = Ui.tv(act, s, 18, Ui.FAINT);
-        t.setGravity(Gravity.CENTER);
-        t.setOnClickListener(null);
+    private EditText amountEt(MainActivity a, String hint) {
+        EditText et = new EditText(a);
+        et.setHint(hint);
+        et.setTextSize(13);
+        et.setSingleLine(true);
+        et.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        et.setBackground(Ui.round(Ui.chipBg(a), 10, a));
+        et.setPadding(Ui.d(a, 8), Ui.d(a, 6), Ui.d(a, 8), Ui.d(a, 6));
+        et.setTextColor(Ui.INK);
+        et.setHintTextColor(Ui.FAINT);
+        return et;
+    }
+
+    private static List<String> allCats() {
+        List<String> l = new ArrayList<>();
+        l.add("全部");
+        for (String s : Categories.OUT) l.add(s);
+        for (String s : Categories.IN) l.add(s);
+        return l;
+    }
+
+    private TextView catChip(MainActivity a, final LinearLayout group, final String name) {
+        final boolean on = name.equals(catShown.isEmpty() ? "全部" : catShown);
+        TextView t = Ui.tv(a, name, 12.5f, on ? Ui.ON_BRAND : Ui.SUB);
+        t.setPadding(Ui.d(a, 12), Ui.d(a, 6), Ui.d(a, 12), Ui.d(a, 6));
+        t.setBackground(Ui.round(on ? Ui.BRAND : Ui.chipBg(a), 10, a));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.rightMargin = Ui.d(a, 6);
+        t.setLayoutParams(lp);
+        t.setOnClickListener(v -> {
+            catShown = "全部".equals(name) ? "" : name;
+            cat = catShown;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                TextView c = (TextView) group.getChildAt(i);
+                boolean sel = c.getText().toString().equals(name);
+                c.setTextColor(sel ? Ui.ON_BRAND : Ui.SUB);
+                c.setBackground(Ui.round(sel ? Ui.BRAND : Ui.chipBg(a), 10, a));
+            }
+            refresh();
+        });
         return t;
     }
 
+    private TextView arrow(String s) {
+        TextView t = Ui.tv(act, s, 18, Ui.FAINT);
+        t.setGravity(Gravity.CENTER);
+        return t;
+    }
+
+    private boolean filtering() {
+        if (filterBar.getVisibility() != View.VISIBLE) return false;
+        return !kwEt.getText().toString().trim().isEmpty()
+                || !cat.isEmpty()
+                || !minEt.getText().toString().trim().isEmpty()
+                || !maxEt.getText().toString().trim().isEmpty();
+    }
+
+    private void clearFilter() {
+        kwEt.setText("");
+        minEt.setText("");
+        maxEt.setText("");
+        cat = "";
+        catShown = "";
+    }
+
     private void menu(final Tx t) {
-        String[] items = {"编辑金额 / 分类", "删除这笔", "查看原始通知"};
+        String[] items = {"编辑金额 / 分类 / 日期", "删除这笔", "查看原始通知"};
         new AlertDialog.Builder(act)
                 .setTitle(t.merchant + "  " + Money.yuan(t.amount))
                 .setItems(items, (d, which) -> {
@@ -176,11 +324,7 @@ class PageBills extends Page {
                         new AlertDialog.Builder(act)
                                 .setMessage("删除这笔 " + Money.yuan(t.amount) + " ？")
                                 .setNegativeButton("取消", null)
-                                .setPositiveButton("删除", (dd, w) -> {
-                                    Db.get(act).del(t.id);
-                                    refresh();
-                                    act.refreshAll();
-                                })
+                                .setPositiveButton("删除", (dd, w) -> delete(t))
                                 .show();
                     } else {
                         String raw = t.raw == null || t.raw.isEmpty() ? "（手动记账，无原始通知）" : t.raw;
@@ -195,23 +339,64 @@ class PageBills extends Page {
                 .show();
     }
 
+    private void delete(final Tx t) {
+        Db.get(act).del(t.id);
+        refresh();
+        act.refreshAll();
+        act.snack("已删除 " + Money.yuan(t.amount), "撤销", () -> {
+            Db.get(act).restore(t);
+            act.refreshAll();
+        });
+    }
+
     @Override
     void refresh() {
-        long from = Span.monthStart(offset);
-        long to = Span.monthEnd(offset);
-        monthTv.setText(Span.monthLabel(offset));
-        long out = Db.get(act).sumKind(Tx.OUT, from, to);
+        Db db = Db.get(act);
+        boolean filtering = filtering();
+
+        long out;
+        long in;
+        List<Tx> l;
+
+        if (filtering) {
+            long min = Money.parse(minEt.getText().toString());
+            long max = Money.parse(maxEt.getText().toString());
+            l = db.search(kwEt.getText().toString(), cat, Math.max(0, min), Math.max(0, max));
+            long o = 0, i = 0;
+            for (Tx t : l) {
+                if (t.kind == Tx.IN) i += t.amount;
+                else o += t.amount;
+            }
+            out = o;
+            in = i;
+            monthTv.setText("全部时间 · " + l.size() + " 笔");
+            prevTv.setVisibility(View.INVISIBLE);
+            nextTv.setVisibility(View.INVISIBLE);
+            budgetBox.removeAllViews();
+        } else {
+            long from = Span.monthStart(offset);
+            long to = Span.monthEnd(offset);
+            monthTv.setText(Span.monthLabel(offset));
+            prevTv.setVisibility(View.VISIBLE);
+            nextTv.setVisibility(View.VISIBLE);
+            out = db.sumKind(Tx.OUT, from, to);
+            in = db.sumKind(Tx.IN, from, to);
+            l = db.bills(from, to);
+            refreshBudget(out);
+        }
+
         outTv.setText(Money.yuan(out));
-        inTv.setText("+" + Money.yuan(Db.get(act).sumKind(Tx.IN, from, to)));
+        inTv.setText("+" + Money.yuan(in));
 
-        refreshBudget(out);
-
-        List<Tx> l = Db.get(act).bills(from, to);
         data.clear();
         data.addAll(l);
-        adapter.notifyDataSetChanged();
+        adapter.regroup();
         list.setSelection(0);
         resizeCard();
+
+        emptyTv.setText(filtering
+                ? "没有匹配的账单\n换个关键词，或者点「搜索」关掉筛选"
+                : "这个月还没有账\n点右下角 ＋ 记一笔，或去「设置」导入账单");
 
         boolean on = NotifyListener.isEnabled(act);
         statusTv.setText(on ? "● 监听中" : "○ 未授权");
@@ -250,7 +435,7 @@ class PageBills extends Page {
         list.setLayoutParams(lp);
     }
 
-    /** 预算条只在「本月」显示，看历史月份时没有意义。 */
+    /** 预算条只在「本月」显示，看历史月份和搜索结果时没有意义。 */
     private void refreshBudget(long spent) {
         budgetBox.removeAllViews();
         long budget = Prefs.budget(act);
@@ -263,6 +448,7 @@ class PageBills extends Page {
         String left = over
                 ? "已超预算 " + Money.yuan(spent - budget)
                 : "预算 " + Money.yuan(budget) + " · 还剩 " + Money.yuan(budget - spent);
+        if (Prefs.cycleStart(act) > 0) left += "（月度口径）";
         row.addView(Ui.tv(act, left, 12, over ? Ui.WARN : Ui.FAINT),
                 new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         row.addView(Ui.tv(act, Math.round(spent * 100.0 / budget) + "%", 12,

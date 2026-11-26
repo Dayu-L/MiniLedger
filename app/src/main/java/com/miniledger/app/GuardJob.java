@@ -45,6 +45,10 @@ public class GuardJob extends JobService {
             } catch (Throwable ignored) {
             }
         }
+
+        // 固定支出、周期结算、预算节奏、小组件 —— 顺便在这个 15 分钟的节拍里做掉
+        Housekeeping.run(c);
+        Housekeeping.background(c);
         return false;
     }
 

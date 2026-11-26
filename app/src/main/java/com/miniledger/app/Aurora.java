@@ -2,16 +2,17 @@ package com.miniledger.app;
 
 import android.content.Context;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RadialGradient;
 import android.graphics.Shader;
 import android.view.View;
 
 /**
- * 玻璃皮肤的底：一层浅灰加几个柔和的色团，
+ * 玻璃皮肤的底：一层底色加几个柔和的色团，
  * 上面压半透明白卡片，读起来就是磨砂玻璃。
  * 不用 RenderEffect 模糊，26 上也一样跑。
+ *
+ * 深色皮肤下只把色团换成低透明度的深色版，避免整屏发灰。
  */
 class Aurora extends View {
 
@@ -28,11 +29,12 @@ class Aurora extends View {
         super.onSizeChanged(nw, nh, ow, oh);
         w = nw;
         h = nh;
-        g1 = blob(w * 0.10f, h * 0.04f, w * 0.95f, 0xBD9FE3D8);
-        g2 = blob(w * 0.98f, h * 0.22f, w * 0.85f, 0xA3C7DDF8);
-        g3 = blob(w * 0.02f, h * 0.84f, w * 0.90f, 0x99FBDCC4);
-        g4 = blob(w * 0.94f, h * 0.98f, w * 0.78f, 0x8A70D6C2);
-        g5 = blob(w * 0.56f, h * 0.52f, w * 0.86f, 0x80A7DCEC);
+        boolean dark = Skin.dark;
+        g1 = blob(w * 0.10f, h * 0.04f, w * 0.95f, dark ? 0x3322C4B4 : 0xBD9FE3D8);
+        g2 = blob(w * 0.98f, h * 0.22f, w * 0.85f, dark ? 0x332F5BD8 : 0xA3C7DDF8);
+        g3 = blob(w * 0.02f, h * 0.84f, w * 0.90f, dark ? 0x336B4FD8 : 0x99FBDCC4);
+        g4 = blob(w * 0.94f, h * 0.98f, w * 0.78f, dark ? 0x332DA8A0 : 0x8A70D6C2);
+        g5 = blob(w * 0.56f, h * 0.52f, w * 0.86f, dark ? 0x33245A7A : 0x80A7DCEC);
     }
 
     private RadialGradient blob(float cx, float cy, float r, int color) {
@@ -57,9 +59,5 @@ class Aurora extends View {
         paint.setShader(g);
         canvas.drawCircle(cx, cy, r, paint);
         paint.setShader(null);
-    }
-
-    static int base() {
-        return Color.rgb(0xF2, 0xF5, 0xF8);
     }
 }

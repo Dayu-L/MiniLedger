@@ -10,4 +10,17 @@
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowNoTitle">true</item>
     </style>
+
+    <!-- 深色：对话框、输入框、开关都跟着变暗，和 Ui 的深色 token 对得上 -->
+    <style name="AppThemeDark" parent="android:Theme.Material.NoActionBar">
+        <item name="android:colorPrimary">#35B3A6</item>
+        <item name="android:colorPrimaryDark">#0D1114</item>
+        <item name="android:colorAccent">#35B3A6</item>
+        <item name="android:windowBackground">#0D1114</item>
+        <item name="android:statusBarColor">#0D1114</item>
+        <item name="android:navigationBarColor">#0D1114</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:colorControlActivated">#35B3A6</item>
+    </style>
 </resources>

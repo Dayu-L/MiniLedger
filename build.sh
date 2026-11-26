@@ -31,7 +31,7 @@ echo "[2/7] link resources"
   --manifest "$SRC/AndroidManifest.xml" \
   --java "$OUT/gen" \
   --min-sdk-version 26 --target-sdk-version 35 \
-  --version-code 1 --version-name 1.0 \
+  --version-code 2 --version-name 1.1 \
   "$OUT/compiled/res.zip"
 
 echo "[3/7] compile java"

@@ -20,7 +20,7 @@ class Db extends SQLiteOpenHelper {
     }
 
     private Db(Context c) {
-        super(c, "ledger.db", null, 1);
+        super(c, "ledger.db", null, 2);
     }
 
     @Override
@@ -37,11 +37,22 @@ class Db extends SQLiteOpenHelper {
         d.execSQL("CREATE INDEX ix_tx_ts ON tx(ts)");
         d.execSQL("CREATE UNIQUE INDEX ux_txid ON tx(txid) WHERE txid IS NOT NULL AND txid <> ''");
         d.execSQL("CREATE TABLE rule(id INTEGER PRIMARY KEY AUTOINCREMENT, kw TEXT UNIQUE, cat TEXT)");
+        createRecur(d);
         seed(d);
     }
 
     @Override
     public void onUpgrade(SQLiteDatabase d, int o, int n) {
+        if (o < 2) createRecur(d);
+    }
+
+    /** 固定支出：每月某日自动落一笔到「待确认」。 */
+    private static void createRecur(SQLiteDatabase d) {
+        d.execSQL("CREATE TABLE IF NOT EXISTS recur(" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "title TEXT, amount INTEGER NOT NULL DEFAULT 0," +
+                "category TEXT, day INTEGER NOT NULL DEFAULT 1," +
+                "last TEXT, onoff INTEGER NOT NULL DEFAULT 1)");
     }
 
     private static void r(SQLiteDatabase d, String cat, String... kws) {
@@ -141,6 +152,9 @@ class Db extends SQLiteOpenHelper {
 
         if ("notify".equals(t.source)) {
             t.status = (autoConfirm && t.dup == 0) ? Tx.DONE : Tx.PENDING;
+        } else if ("recur".equals(t.source)) {
+            // 固定支出不静默扣钱，先落「待确认」
+            t.status = Tx.PENDING;
         } else {
             t.status = Tx.DONE;
         }
@@ -230,6 +244,40 @@ class Db extends SQLiteOpenHelper {
 
     void del(long id) {
         getWritableDatabase().delete("tx", "id=?", new String[]{String.valueOf(id)});
+    }
+
+    /** 删错了再放回去：所有字段原样写回（新 id）。 */
+    long restore(Tx t) {
+        ContentValues v = new ContentValues();
+        v.put("ts", t.ts);
+        v.put("kind", t.kind);
+        v.put("amount", t.amount);
+        v.put("merchant", t.merchant);
+        v.put("category", t.category);
+        v.put("account", t.account);
+        v.put("note", t.note);
+        v.put("source", t.source);
+        v.put("src_pkg", t.srcPkg);
+        v.put("txid", t.txid);
+        v.put("raw", t.raw);
+        v.put("status", t.status);
+        v.put("dup", t.dup);
+        try {
+            return getWritableDatabase().insert("tx", null, v);
+        } catch (Exception e) {
+            // txid 唯一索引碰了：去掉单号再插一次
+            v.put("txid", "");
+            try {
+                return getWritableDatabase().insert("tx", null, v);
+            } catch (Exception e2) {
+                return -1;
+            }
+        }
+    }
+
+    /** 同商户所有待确认（批量处理用）。 */
+    List<Tx> pendingOf(String merchant) {
+        return list("status=0 AND merchant=?", new String[]{merchant}, "ts DESC", null);
     }
 
     // ----------------------------------------------------------------- read
@@ -325,5 +373,100 @@ class Db extends SQLiteOpenHelper {
             v[i] = sumKind(Tx.OUT, Span.dayStart(i - 6), Span.dayStart(i - 5));
         }
         return v;
+    }
+
+    /** 任意区间内逐日支出，下标 0 = from 当天。 */
+    long[] dailyOut(long from, int days) {
+        long[] v = new long[days];
+        for (int i = 0; i < days; i++) {
+            long d = Span.addDays(from, i);
+            v[i] = sumKind(Tx.OUT, d, Span.addDays(d, 1));
+        }
+        return v;
+    }
+
+    /** 搜索：关键词（商户/备注/分类/原文）+ 分类 + 金额区间，跨全部时间。 */
+    List<Tx> search(String kw, String cat, long minCents, long maxCents) {
+        StringBuilder w = new StringBuilder("status=1");
+        List<String> args = new ArrayList<>();
+
+        String k = kw == null ? "" : kw.trim();
+        if (!k.isEmpty()) {
+            w.append(" AND (merchant LIKE ? OR note LIKE ? OR category LIKE ? OR raw LIKE ?)");
+            String like = "%" + k + "%";
+            for (int i = 0; i < 4; i++) args.add(like);
+        }
+        if (cat != null && !cat.isEmpty()) {
+            w.append(" AND category=?");
+            args.add(cat);
+        }
+        if (minCents > 0) {
+            w.append(" AND amount>=?");
+            args.add(String.valueOf(minCents));
+        }
+        if (maxCents > 0) {
+            w.append(" AND amount<=?");
+            args.add(String.valueOf(maxCents));
+        }
+        return list(w.toString(), args.toArray(new String[0]), null, null);
+    }
+
+    /** 商户排行：[商户, 金额分]，按金额降序。 */
+    List<String[]> merchantStats(int kind, long from, long to, int limit) {
+        List<String[]> out = new ArrayList<>();
+        Cursor c = getReadableDatabase().rawQuery(
+                "SELECT merchant, IFNULL(SUM(amount),0) s FROM tx WHERE status=1 AND kind=? " +
+                        "AND ts>=? AND ts<? AND merchant IS NOT NULL AND merchant<>'' " +
+                        "GROUP BY merchant ORDER BY s DESC LIMIT " + Math.max(1, limit),
+                new String[]{String.valueOf(kind), String.valueOf(from), String.valueOf(to)});
+        while (c.moveToNext()) out.add(new String[]{nz(c.getString(0)), String.valueOf(c.getLong(1))});
+        c.close();
+        return out;
+    }
+
+    // ------------------------------------------------------------ 固定支出
+
+    List<Recur> recurAll() {
+        List<Recur> out = new ArrayList<>();
+        Cursor c = getReadableDatabase().rawQuery(
+                "SELECT id,title,amount,category,day,last,onoff FROM recur ORDER BY day", null);
+        while (c.moveToNext()) {
+            Recur r = new Recur();
+            r.id = c.getLong(0);
+            r.title = nz(c.getString(1));
+            r.amount = c.getLong(2);
+            r.category = nz(c.getString(3));
+            r.day = c.getInt(4);
+            r.last = nz(c.getString(5));
+            r.enabled = c.getInt(6) != 0;
+            out.add(r);
+        }
+        c.close();
+        return out;
+    }
+
+    long recurSave(Recur r) {
+        ContentValues v = new ContentValues();
+        v.put("title", r.title);
+        v.put("amount", r.amount);
+        v.put("category", r.category);
+        v.put("day", r.day);
+        v.put("last", r.last);
+        v.put("onoff", r.enabled ? 1 : 0);
+        if (r.id > 0) {
+            getWritableDatabase().update("recur", v, "id=?", new String[]{String.valueOf(r.id)});
+            return r.id;
+        }
+        return getWritableDatabase().insert("recur", null, v);
+    }
+
+    void recurDel(long id) {
+        getWritableDatabase().delete("recur", "id=?", new String[]{String.valueOf(id)});
+    }
+
+    void recurPosted(long id, String monthKey) {
+        ContentValues v = new ContentValues();
+        v.put("last", monthKey);
+        getWritableDatabase().update("recur", v, "id=?", new String[]{String.valueOf(id)});
     }
 }

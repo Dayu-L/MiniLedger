@@ -16,6 +16,8 @@ class Notifier {
     static final int ID_ALERT = 1002;
     static final int ID_CAPTURE = 1003;
     static final int ID_BUDGET = 1004;
+    static final int ID_PACE = 1005;
+    static final int ID_CYCLE = 1006;
 
     static void setup(Context c) {
         NotificationManager nm = (NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE);
@@ -100,8 +102,8 @@ class Notifier {
         if (nm != null) nm.notify(ID_CAPTURE, b.build());
     }
 
-    /** 预算 80% / 100%。 */
-    static void budgetAlert(Context c, long spent, long budget, boolean over) {
+    /** 预算 80% / 100%（账期开着就是周期预算，否则自然月）。 */
+    static void budgetAlert(Context c, Budget.Window w, long spent, long budget, boolean over) {
         Notification.Builder b;
         if (android.os.Build.VERSION.SDK_INT >= 26) {
             b = new Notification.Builder(c, CH_ALERT);
@@ -109,12 +111,14 @@ class Notifier {
             b = new Notification.Builder(c);
             b.setPriority(Notification.PRIORITY_HIGH);
         }
-        String title = over ? "这个月的预算用完了" : "预算用了 " + (spent * 100 / budget) + "%";
-        String text = over
+        String title = over
+                ? (w.cycle ? "这个周期的预算用完了" : "这个月的预算用完了")
+                : "预算用了 " + (spent * 100 / budget) + "%";
+        String text = w.label + " · " + (over
                 ? "已花 " + Money.yuan(spent) + " / 预算 " + Money.yuan(budget)
                   + "，超支 " + Money.yuan(spent - budget)
                 : "已花 " + Money.yuan(spent) + " / 预算 " + Money.yuan(budget)
-                  + "，还剩 " + Money.yuan(budget - spent);
+                  + "，还剩 " + Money.yuan(budget - spent));
         b.setSmallIcon(R.drawable.ic_stat)
                 .setContentTitle(title)
                 .setContentText(text)
@@ -122,5 +126,50 @@ class Notifier {
                 .setContentIntent(open(c));
         NotificationManager nm = (NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm != null) nm.notify(ID_BUDGET, b.build());
+    }
+
+    /** 今天花超了日均额度。 */
+    static void paceAlert(Context c, long today, long perDay) {
+        Notification.Builder b;
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            b = new Notification.Builder(c, CH_CAPTURE);
+        } else {
+            b = new Notification.Builder(c);
+            b.setPriority(Notification.PRIORITY_DEFAULT);
+        }
+        b.setSmallIcon(R.drawable.ic_stat)
+                .setContentTitle("今天花了 " + Money.yuan(today))
+                .setContentText("日均额度 " + Money.yuan(perDay) + "，明天匀回去一点吧")
+                .setAutoCancel(true)
+                .setContentIntent(open(c));
+        NotificationManager nm = (NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (nm != null) nm.notify(ID_PACE, b.build());
+    }
+
+    /** 账期结算：最后一天晚上提醒一次。 */
+    static void cycleAlert(Context c, Span.Cycle cyc, long out, long in, long budget) {
+        Notification.Builder b;
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            b = new Notification.Builder(c, CH_CAPTURE);
+        } else {
+            b = new Notification.Builder(c);
+            b.setPriority(Notification.PRIORITY_DEFAULT);
+        }
+        String text = "花了 " + Money.yuan(out) + (in > 0 ? "，收入 " + Money.yuan(in) : "");
+        if (budget > 0) {
+            text += out <= budget
+                    ? "，预算还剩 " + Money.yuan(budget - out)
+                    : "，超支 " + Money.yuan(out - budget);
+        }
+        text += "。明天开始新账期。";
+
+        b.setSmallIcon(R.drawable.ic_stat)
+                .setContentTitle(Span.rangeLabel(cyc.start, cyc.end) + " 结束了")
+                .setContentText(text)
+                .setStyle(new Notification.BigTextStyle().bigText(text))
+                .setAutoCancel(true)
+                .setContentIntent(open(c));
+        NotificationManager nm = (NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (nm != null) nm.notify(ID_CYCLE, b.build());
     }
 }

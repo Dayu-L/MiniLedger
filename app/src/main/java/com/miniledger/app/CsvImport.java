@@ -38,6 +38,14 @@ final class CsvImport {
         String text = readText(c, uri);
         String[] lines = text.split("\r?\n");
 
+        // 简账自己导出的备份/账单（恢复用）
+        for (int i = 0; i < Math.min(3, lines.length); i++) {
+            String head = lines[i].replace("\uFEFF", "").trim();
+            if (head.startsWith("时间,类型,金额,分类,对象,账户")) {
+                return importOwn(c, lines, i);
+            }
+        }
+
         Map<String, Integer> col = null;
         int headerIdx = -1;
         for (int i = 0; i < lines.length; i++) {
@@ -118,6 +126,49 @@ final class CsvImport {
         return r;
     }
 
+    /** 简账自己的 CSV：时间,类型,金额,分类,对象,账户,备注,来源,单号 */
+    private static Result importOwn(Context c, String[] lines, int headerIdx) throws Exception {
+        List<String> head = split(lines[headerIdx].replace("\uFEFF", ""));
+        Map<String, Integer> col = new HashMap<>();
+        for (int j = 0; j < head.size(); j++) col.put(head.get(j).trim(), j);
+
+        SimpleDateFormat fmt = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.CHINA);
+        Result r = new Result();
+
+        for (int i = headerIdx + 1; i < lines.length; i++) {
+            String line = lines[i].trim();
+            if (line.isEmpty()) continue;
+            List<String> cells = split(line);
+
+            long amount = Money.parse(v(cells, col, "金额"));
+            if (amount <= 0) {
+                r.skipped++;
+                continue;
+            }
+
+            Tx t = new Tx();
+            try {
+                t.ts = fmt.parse(v(cells, col, "时间")).getTime();
+            } catch (Exception e) {
+                t.ts = System.currentTimeMillis();
+            }
+            t.kind = v(cells, col, "类型").contains("收入") ? Tx.IN : Tx.OUT;
+            t.amount = amount;
+            t.category = v(cells, col, "分类");
+            t.merchant = v(cells, col, "对象");
+            t.account = v(cells, col, "账户");
+            t.note = v(cells, col, "备注");
+            t.source = "csv";
+            t.txid = v(cells, col, "单号");
+            t.status = Tx.DONE;
+
+            if (Db.get(c).insert(t, true) > 0) r.added++;
+            else r.skipped++;
+        }
+        r.msg = "恢复完成：新增 " + r.added + " 笔，跳过 " + r.skipped + " 笔";
+        return r;
+    }
+
     private static String accountOf(String pay, Context c) {
         if (pay == null) return "微信/支付宝";
         if (pay.contains("零钱")) return "微信零钱";
@@ -190,10 +241,11 @@ final class CsvImport {
 
     // ------------------------------------------------------------- export
 
-    static String export(Context c) throws Exception {
+    /** 全部账单，跟「导出」用的是同一份格式，备份/恢复也用它。 */
+    static String buildCsv(Context c) {
         List<Tx> all = Db.get(c).all();
         StringBuilder sb = new StringBuilder();
-        sb.append("时间,类型,金额,分类,对象,账户,备注,来源\n");
+        sb.append("时间,类型,金额,分类,对象,账户,备注,来源,单号\n");
         SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.CHINA);
         for (Tx t : all) {
             sb.append(f.format(new Date(t.ts))).append(',')
@@ -203,12 +255,19 @@ final class CsvImport {
                     .append(q(t.merchant)).append(',')
                     .append(q(t.account)).append(',')
                     .append(q(t.note)).append(',')
-                    .append(t.source).append('\n');
+                    .append(t.source).append(',')
+                    .append(q(t.txid)).append('\n');
         }
+        return sb.toString();
+    }
+
+    static String export(Context c) throws Exception {
+        int count = Db.get(c).all().size();
+        String csv = buildCsv(c);
 
         String name = "简账-" + new SimpleDateFormat("yyyyMMdd-HHmm", Locale.CHINA)
                 .format(new Date()) + ".csv";
-        byte[] data = ("\uFEFF" + sb).getBytes("UTF-8");
+        byte[] data = ("\uFEFF" + csv).getBytes("UTF-8");
 
         if (Build.VERSION.SDK_INT >= 29) {
             ContentValues v = new ContentValues();
@@ -222,7 +281,7 @@ final class CsvImport {
             if (os == null) throw new Exception("写入失败");
             os.write(data);
             os.close();
-            return "已导出到 下载/简账/" + name + "（" + all.size() + " 笔）";
+            return "已导出到 下载/简账/" + name + "（" + count + " 笔）";
         }
 
         File dir = c.getExternalFilesDir(null);
@@ -231,7 +290,7 @@ final class CsvImport {
         FileOutputStream fo = new FileOutputStream(out);
         fo.write(data);
         fo.close();
-        return "已导出到 " + out.getAbsolutePath() + "（" + all.size() + " 笔）";
+        return "已导出到 " + out.getAbsolutePath() + "（" + count + " 笔）";
     }
 
     private static String q(String s) {

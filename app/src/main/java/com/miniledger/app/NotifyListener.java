@@ -95,6 +95,7 @@ public class NotifyListener extends NotificationListenerService {
 
         GuardService.refresh(this);
         Budget.check(this);
+        WidgetProvider.refresh(this);
         if (t.status == Tx.PENDING) Notifier.captured(this, t);
     }
 }
